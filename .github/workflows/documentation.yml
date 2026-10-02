@@ -1,0 +1,44 @@
+name: Documentation CI
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'doc/**'
+      - '**/*.md'
+      - '.github/workflows/documentation.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+      - 'doc/**'
+      - '**/*.md'
+      - '.github/workflows/documentation.yml'
+
+concurrency:
+  group: documentation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  documentation:
+    name: Documentation (system build and agent instruction drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build doc/system and check snapshots
+        run: bash doc/system/BUILD.sh
+
+      - name: Fail if the assembled reference differs from the parts
+        run: git diff --exit-code -- doc
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Check generated agent instructions match repo.manifest.yaml
+        run: bun run check:agent-instruction-drift
