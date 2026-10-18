@@ -310,6 +310,12 @@ Dependency setup fails before frontend and browser tests execute. The separate
 Lintian command regressions do not establish that those application tests passed.
 Restore a reviewed dependency lock through its own change; keep the frozen gate.
 
+After Tauri succeeds, the checked wrapper reads Cargo metadata for the actual
+target directory. This supports workspace roots and configured output directories
+without assuming `src-tauri/target`. Metadata runs offline with the existing
+lockfile and no dependency listing. Metadata failure blocks archive inspection
+and upload; the wrapper does not guess another path.
+
 ---
 
 # Appendices
