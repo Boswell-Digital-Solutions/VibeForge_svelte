@@ -116,3 +116,13 @@ frontend type checks, unit tests, browsers and build. A missing, skipped or fail
 StateForge job blocks that aggregate. No invariant test is waived or converted to
 an advisory check. Running the fixtures is validation, not acceptance of a model,
 evidence chain, release posture or qualification gate.
+
+
+Each browser matrix runner provisions Chromium as well as its selected engine:
+Playwright's shared `setup` project uses Chromium even in Firefox/WebKit lanes.
+Provisioning only the selected engine previously prevented authentication setup
+from starting. Setup still invokes the real application login path; a missing or
+rejecting backend remains a failure. The login page's legacy development-mode
+claim does not authorize bypassing the backend or accepting a synthetic token.
+No authentication implementation, authority requirement or backend/cloud boundary
+is changed by installing the required test engine.

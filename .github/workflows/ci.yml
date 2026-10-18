@@ -120,7 +120,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+        run: pnpm exec playwright install --with-deps chromium ${{ matrix.browser }}
 
       - name: Run E2E tests
         run: pnpm test:e2e --project=${{ matrix.browser }}
