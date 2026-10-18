@@ -26,3 +26,12 @@
 - Likely root cause (not tested): `pnpm-lock.yaml` is `lockfileVersion: '9.0'` and `ci.yml` pins pnpm 8, which cannot read a v9 lockfile and reports it as absent.
 - Fix: pin pnpm 9 or newer in `ci.yml`, or regenerate the lockfile with pnpm 8.
 - Scope: open.
+
+
+## 2026-10-18 — Documentation check-mode limit
+
+**Status: OPEN verification limit.** `doc/system/BUILD.sh` does not parse
+`--check`; that invocation rebuilds the output and returns success. This change
+uses before/after generated-output hashes to check deterministic rebuilds. It
+does not claim a strict stale-document guard. The existing builder was not
+changed as part of Debian package inspection.
