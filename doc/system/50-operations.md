@@ -90,10 +90,16 @@ The current documentation builder has no strict `--check` mode. That argument
 runs a rebuild. Validation must compare generated output hashes across rebuilds;
 exit status alone does not prove that committed documentation was current.
 
-Current application CI requires a committed `pnpm-lock.yaml`, which is absent.
-Dependency setup fails before frontend and browser tests execute. The separate
-Lintian command regressions do not establish that those application tests passed.
-Restore a reviewed dependency lock through its own change; keep the frozen gate.
+Application CI uses pnpm 10 with the committed version-9 `pnpm-lock.yaml`.
+The earlier pnpm-8 runner could not read that format: it warned that the lockfile
+was incompatible, then reported `ERR_PNPM_NO_LOCKFILE`. The lockfile was present;
+the earlier missing-file diagnosis was incorrect. All four setup jobs now use
+the compatible major version, while `pnpm install --frozen-lockfile` remains
+mandatory. No dependency resolution or lockfile content changes are included.
+A local offline, lockfile-only validation under pnpm 10 confirms format
+compatibility without installing dependencies or running lifecycle scripts.
+Frontend, unit, build and all three browser checks remain required; a setup fix
+alone does not prove those later checks passed.
 
 After Tauri succeeds, the checked wrapper reads Cargo metadata for the actual
 target directory. This supports workspace roots and configured output directories

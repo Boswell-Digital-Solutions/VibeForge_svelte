@@ -45,3 +45,16 @@ with `ERR_PNPM_NO_LOCKFILE` before their tests execute. Baseline commit
 `148dbde653a9ae22480a5382fcacfda01c86d203` already has failed CI run `37052634807`.
 The Lintian command suite passes separately. This packaging change does not
 generate a new dependency resolution or weaken the frozen-lockfile check.
+
+
+### Correction and remediation of the install diagnosis
+
+Verified at PR #10 head `25d2473abf5693046afe5b7826493bee248d480a`:
+`pnpm-lock.yaml` is committed with `lockfileVersion: 9.0`. The earlier claim that
+it was not committed was incorrect. The October 2 issue's proposed version
+mismatch is confirmed by the hosted warning immediately before the error:
+`Ignoring not compatible lockfile`. CI used pnpm 8. All four jobs now use pnpm 10,
+with the frozen-lockfile guard unchanged. The committed lockfile and package
+manifest are unchanged. Offline lockfile-only validation under pnpm 10.26.2
+returned 0. Later application and browser tests remain required and will be
+reported separately. This corrects the diagnosis, not the historical failed run.
