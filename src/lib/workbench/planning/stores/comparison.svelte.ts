@@ -17,6 +17,7 @@ import type {
 	ExportFormat
 } from '../types';
 import { planComparisonService } from '../services/planComparisonService';
+import { calculateCombinedScore } from '../types/planComparison';
 
 /**
  * Comparison Store State
@@ -245,8 +246,6 @@ function createMultiWayComparison(sessions: PlanningSession[], title: string): v
 						? session.completedAt.getTime() - session.startedAt.getTime()
 						: 0;
 
-				// Import calculateCombinedScore
-				const { calculateCombinedScore } = await import('../types/planComparison');
 				const score = calculateCombinedScore(
 					quality,
 					session.totalCost,

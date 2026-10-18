@@ -104,7 +104,7 @@ function handleClose() {
 								class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
 								title="Export as JSON"
 							>
-								{} JSON
+								&#123;&#125; JSON
 							</button>
 							<button
 								onclick={() => handleExport('html')}
@@ -444,6 +444,7 @@ function handleClose() {
 {/if}
 
 <style>
+	@reference "../../../../app.css";
 	.plan-comparison-view {
 		@apply min-h-full;
 	}

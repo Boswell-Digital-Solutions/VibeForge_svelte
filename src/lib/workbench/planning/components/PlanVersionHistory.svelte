@@ -288,6 +288,7 @@ function getVersionColor(version: PlanVersion): string {
 </div>
 
 <style>
+	@reference "../../../../app.css";
 	.version-history {
 		background: white;
 		border: 1px solid theme('colors.gray.200');

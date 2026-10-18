@@ -106,3 +106,13 @@ target directory. This supports workspace roots and configured output directorie
 without assuming `src-tauri/target`. Metadata runs offline with the existing
 lockfile and no dependency listing. Metadata failure blocks archive inspection
 and upload; the wrapper does not guess another path.
+
+
+StateForge declares Bun's test API in its own package. Run its complete suite
+with `cd tools/stateforge && bun test`; the required CI `StateForge Tests (Bun)`
+job uses Bun 1.3.14. Vitest excludes only that separately tested tool directory.
+The aggregate `All Tests Passed` job requires the StateForge result as well as
+frontend type checks, unit tests, browsers and build. A missing, skipped or failed
+StateForge job blocks that aggregate. No invariant test is waived or converted to
+an advisory check. Running the fixtures is validation, not acceptance of a model,
+evidence chain, release posture or qualification gate.

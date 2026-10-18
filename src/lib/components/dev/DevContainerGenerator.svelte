@@ -325,6 +325,7 @@
 </div>
 
 <style>
+	@reference "../../../app.css";
   .devcontainer-generator {
     @apply p-6;
   }

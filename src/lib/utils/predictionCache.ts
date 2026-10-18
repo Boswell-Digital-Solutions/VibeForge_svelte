@@ -6,7 +6,6 @@
  */
 
 import type { SuccessPrediction, PredictSuccessRequest } from '$lib/types/success-prediction';
-import { createHash } from 'crypto';
 
 // ============================================================================
 // Types

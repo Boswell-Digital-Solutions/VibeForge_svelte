@@ -127,6 +127,7 @@ function formatTimestamp(date: Date): string {
 {/if}
 
 <style>
+	@reference "../../../../app.css";
 	.version-selector {
 		background: white;
 		border: 1px solid theme('colors.gray.200');
