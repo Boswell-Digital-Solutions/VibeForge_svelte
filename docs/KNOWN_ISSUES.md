@@ -35,3 +35,13 @@
 uses before/after generated-output hashes to check deterministic rebuilds. It
 does not claim a strict stale-document guard. The existing builder was not
 changed as part of Debian package inspection.
+
+
+## 2026-10-18 — Existing CI cannot install from the missing pnpm lockfile
+
+**Status: OPEN; predates the Lintian rollout.** CI uses `pnpm install --frozen-lockfile`,
+but `pnpm-lock.yaml` is not committed. Lint/type, unit and three browser jobs fail
+with `ERR_PNPM_NO_LOCKFILE` before their tests execute. Baseline commit
+`148dbde653a9ae22480a5382fcacfda01c86d203` already has failed CI run `37052634807`.
+The Lintian command suite passes separately. This packaging change does not
+generate a new dependency resolution or weaken the frozen-lockfile check.

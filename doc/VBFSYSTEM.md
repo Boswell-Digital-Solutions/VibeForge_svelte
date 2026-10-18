@@ -305,6 +305,11 @@ The current documentation builder has no strict `--check` mode. That argument
 runs a rebuild. Validation must compare generated output hashes across rebuilds;
 exit status alone does not prove that committed documentation was current.
 
+Current application CI requires a committed `pnpm-lock.yaml`, which is absent.
+Dependency setup fails before frontend and browser tests execute. The separate
+Lintian command regressions do not establish that those application tests passed.
+Restore a reviewed dependency lock through its own change; keep the frozen gate.
+
 ---
 
 # Appendices
