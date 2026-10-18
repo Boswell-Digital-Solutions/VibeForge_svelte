@@ -206,6 +206,7 @@ function handleKeyPress(event: KeyboardEvent) {
 </div>
 
 <style>
+	@reference "../../../../app.css";
 	.refinement-request-form {
 		background: white;
 		border: 1px solid theme('colors.gray.200');

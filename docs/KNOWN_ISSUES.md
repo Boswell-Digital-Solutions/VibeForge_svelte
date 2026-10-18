@@ -26,3 +26,35 @@
 - Likely root cause (not tested): `pnpm-lock.yaml` is `lockfileVersion: '9.0'` and `ci.yml` pins pnpm 8, which cannot read a v9 lockfile and reports it as absent.
 - Fix: pin pnpm 9 or newer in `ci.yml`, or regenerate the lockfile with pnpm 8.
 - Scope: open.
+
+
+## 2026-10-18 — Documentation check-mode limit
+
+**Status: OPEN verification limit.** `doc/system/BUILD.sh` does not parse
+`--check`; that invocation rebuilds the output and returns success. This change
+uses before/after generated-output hashes to check deterministic rebuilds. It
+does not claim a strict stale-document guard. The existing builder was not
+changed as part of Debian package inspection.
+
+
+## 2026-10-18 — Existing CI cannot install from the missing pnpm lockfile
+
+**Status: OPEN; predates the Lintian rollout.** CI uses `pnpm install --frozen-lockfile`,
+but `pnpm-lock.yaml` is not committed. Lint/type, unit and three browser jobs fail
+with `ERR_PNPM_NO_LOCKFILE` before their tests execute. Baseline commit
+`148dbde653a9ae22480a5382fcacfda01c86d203` already has failed CI run `37052634807`.
+The Lintian command suite passes separately. This packaging change does not
+generate a new dependency resolution or weaken the frozen-lockfile check.
+
+
+### Correction and remediation of the install diagnosis
+
+Verified at PR #10 head `25d2473abf5693046afe5b7826493bee248d480a`:
+`pnpm-lock.yaml` is committed with `lockfileVersion: 9.0`. The earlier claim that
+it was not committed was incorrect. The October 2 issue's proposed version
+mismatch is confirmed by the hosted warning immediately before the error:
+`Ignoring not compatible lockfile`. CI used pnpm 8. All four jobs now use pnpm 10,
+with the frozen-lockfile guard unchanged. The committed lockfile and package
+manifest are unchanged. Offline lockfile-only validation under pnpm 10.26.2
+returned 0. Later application and browser tests remain required and will be
+reported separately. This corrects the diagnosis, not the historical failed run.

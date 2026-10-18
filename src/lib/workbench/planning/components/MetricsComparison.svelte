@@ -345,6 +345,7 @@ const maxDuration = Math.max(comparison.sessionA.durationMs, comparison.sessionB
 </div>
 
 <style>
+	@reference "../../../../app.css";
 	.metric-row {
 		padding-bottom: 0.75rem;
 		border-bottom: 1px solid theme('colors.gray.100');

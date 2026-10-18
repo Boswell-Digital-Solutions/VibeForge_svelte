@@ -244,6 +244,7 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 {/if}
 
 <style>
+	@reference "../../../../app.css";
 	.version-diff-view {
 		background: white;
 		border: 1px solid theme('colors.gray.200');

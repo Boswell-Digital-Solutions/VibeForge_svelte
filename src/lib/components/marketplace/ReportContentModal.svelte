@@ -136,7 +136,7 @@ async function handleSubmit() {
 			<!-- Details -->
 			<div class="mb-6">
 				<label class="block text-sm font-medium text-gray-700 mb-2">
-					Additional Details {reason === 'other' ? <span class="text-red-500">*</span> : '(optional)'}
+					Additional Details {#if reason === 'other'}<span class="text-red-500">*</span>{:else}(optional){/if}
 				</label>
 				<textarea
 					bind:value={details}

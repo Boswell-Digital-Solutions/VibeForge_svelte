@@ -310,6 +310,7 @@
 </div>
 
 <style>
+	@reference "../../../app.css";
   .installation-guide {
     @apply p-6;
   }

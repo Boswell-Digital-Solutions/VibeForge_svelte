@@ -233,6 +233,7 @@ function formatIntent(intent: string): string {
 </div>
 
 <style>
+	@reference "../../../app.css";
 	.pattern-suggestions {
 		@apply overflow-hidden;
 	}

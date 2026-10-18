@@ -505,6 +505,7 @@
 </div>
 
 <style>
+	@reference "../../../app.css";
   .toolchains-config {
     @apply p-6;
   }

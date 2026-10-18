@@ -114,6 +114,7 @@
 </div>
 
 <style>
+	@reference "../../../app.css";
 	.streaming-text {
 		@apply relative;
 	}

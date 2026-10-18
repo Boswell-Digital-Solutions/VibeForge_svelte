@@ -156,6 +156,7 @@ function formatCriterion(criterion: string): string {
 </div>
 
 <style>
+	@reference "../../../../app.css";
 	.quality-score-card {
 		@apply min-h-0;
 	}

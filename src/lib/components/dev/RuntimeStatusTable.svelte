@@ -325,6 +325,7 @@
 </div>
 
 <style>
+	@reference "../../../app.css";
   .runtime-status-table {
     @apply p-6;
   }

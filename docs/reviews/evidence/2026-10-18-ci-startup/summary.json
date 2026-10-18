@@ -1,0 +1,104 @@
+{
+  "reviewed_master": "148dbde653a9ae22480a5382fcacfda01c86d203",
+  "tests_total": 1352,
+  "tests_passed": 1196,
+  "tests_failed": 156,
+  "files_total": 46,
+  "files_failed": 16,
+  "failed_files": [
+    {
+      "file": "src/tests/integration/mcp.integration.test.ts",
+      "failed_tests": 11
+    },
+    {
+      "file": "src/tests/performance/benchmarks.test.ts",
+      "failed_tests": 4
+    },
+    {
+      "file": "src/tests/planning/comparison.test.ts",
+      "failed_tests": 14
+    },
+    {
+      "file": "src/tests/planning/planComparisonService.test.ts",
+      "failed_tests": 5
+    },
+    {
+      "file": "src/tests/planning/versioning.test.ts",
+      "failed_tests": 6
+    },
+    {
+      "file": "src/tests/stores/analysisStore.test.ts",
+      "failed_tests": 1
+    },
+    {
+      "file": "src/tests/stores/license.test.ts",
+      "failed_tests": 1
+    },
+    {
+      "file": "src/tests/stores/workspace.test.ts",
+      "failed_tests": 21
+    },
+    {
+      "file": "src/lib/core/api/dataforgeClient.enhanced.test.ts",
+      "failed_tests": 8
+    },
+    {
+      "file": "src/lib/core/sync/indexedDb.test.ts",
+      "failed_tests": 41
+    },
+    {
+      "file": "src/lib/core/sync/syncManager.test.ts",
+      "failed_tests": 8
+    },
+    {
+      "file": "src/lib/core/sync/websocket.test.ts",
+      "failed_tests": 24
+    },
+    {
+      "file": "src/lib/refactoring/analyzer/__tests__/BestPracticesDetector.test.ts",
+      "failed_tests": 7
+    },
+    {
+      "file": "src/lib/refactoring/analyzer/__tests__/EditorAnalyzer.test.ts",
+      "failed_tests": 1
+    },
+    {
+      "file": "src/lib/refactoring/analyzer/__tests__/PerformanceDetector.test.ts",
+      "failed_tests": 2
+    },
+    {
+      "file": "src/lib/refactoring/analyzer/__tests__/SecurityDetector.test.ts",
+      "failed_tests": 2
+    }
+  ],
+  "typecheck": {
+    "errors": 191,
+    "warnings": 261,
+    "files": 109
+  },
+  "stateforge_bun_tests": {
+    "passed": 22,
+    "failed": 0,
+    "files": 7
+  },
+  "module_boundary_tests": {
+    "passed": 2,
+    "failed": 0
+  },
+  "packaging_command_tests": {
+    "passed": 9,
+    "failed": 0
+  },
+  "browser_smoke": {
+    "http_status": 200,
+    "page_errors": 0,
+    "paid_calls": 0,
+    "scope": "startup only; no prompt execution"
+  },
+  "build": {
+    "passed": false,
+    "error": "Node filesystem/path imports in FileSystemScanner enter browser bundle"
+  },
+  "dependency_source": "isolated copy of existing local pnpm virtual store; hosted frozen-lockfile CI remains required",
+  "release_acceptance": false
+}
