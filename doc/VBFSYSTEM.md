@@ -245,21 +245,21 @@ permission-envelope, candidate-only, review-packet, and receipt boundary.
 
 # Operations
 
-**Document version:** 1.0 (bootstrap scaffold)
+**Document version:** 1.1 (partial operations inventory)
 
 Deployment, observability, incident response, and bounded repair.
 
-> This chapter is a registry-generated bootstrap scaffold for a
-> `application` class documentation system. Replace this placeholder with
-> real authored content. Registry will not invent repo truth that is not
-> already present in the repo.
+This chapter records verified CI routing and packaging operations. Other
+operational subsystems still require source-backed documentation.
 
 ## Which CI runs for which change
 
-The rule: a change that touches only documentation runs the Documentation CI and no code CI.
-A change that touches any other file runs the code CI.
-A change that touches both runs both.
-The code CI runs only when code changes.
+A pull request whose complete change set contains only documentation runs
+Documentation CI and excludes code CI. A pull request containing code or workflow
+changes runs code CI; one containing both code and docs runs both.
+A docs-only tip commit on an existing code PR can therefore rerun code CI: GitHub
+uses the cumulative three-dot PR diff, rather than only that last commit. See
+[GitHub diff comparisons](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#git-diff-comparisons).
 The nightly E2E workflow is schedule-only and is not part of this rule.
 
 The `CI` workflow (`.github/workflows/ci.yml`) uses a workflow-level `paths` filter on `push` and `pull_request`.
@@ -371,6 +371,13 @@ rejecting backend remains a failure. The login page's legacy development-mode
 claim does not authorize bypassing the backend or accepting a synthetic token.
 No authentication implementation, authority requirement or backend/cloud boundary
 is changed by installing the required test engine.
+
+
+For an independent documentation correction after a code PR is merged, branch
+from the updated default branch and open a docs-only PR so its complete diff stays
+within the documentation paths. Canonical chapters affected by a code change must
+still be current in that code PR before merge; a later docs-only PR is not a way
+to defer mandatory behavior documentation or bypass its required checks.
 
 ---
 
