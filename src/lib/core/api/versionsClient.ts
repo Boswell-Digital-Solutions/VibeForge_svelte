@@ -5,6 +5,7 @@
  */
 
 import { neuroforgeConfig } from "./config";
+import { getAuthHeader } from "$lib/auth";
 
 // ============================================================================
 // Types - matching backend Pydantic models
@@ -97,7 +98,8 @@ class VersionsClient {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-user-id": this.userId,
+            // NeuroForge takes the owner from this verified token, never from x-user-id.
+            ...getAuthHeader(),
           },
           body: JSON.stringify(versionData),
         }
@@ -132,7 +134,7 @@ class VersionsClient {
 
       const response = await fetch(url.toString(), {
         headers: {
-          "x-user-id": this.userId,
+          ...getAuthHeader(),
         },
       });
 
@@ -164,7 +166,7 @@ class VersionsClient {
         `${this.baseUrl}/prompts/${promptId}/versions/${versionId}`,
         {
           headers: {
-            "x-user-id": this.userId,
+            ...getAuthHeader(),
           },
         }
       );
@@ -197,7 +199,7 @@ class VersionsClient {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-user-id": this.userId,
+            ...getAuthHeader(),
           },
           body: JSON.stringify({ versionId }),
         }
@@ -236,7 +238,7 @@ class VersionsClient {
 
       const response = await fetch(url.toString(), {
         headers: {
-          "x-user-id": this.userId,
+          ...getAuthHeader(),
         },
       });
 

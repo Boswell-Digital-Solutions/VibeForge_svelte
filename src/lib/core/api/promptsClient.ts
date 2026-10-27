@@ -5,6 +5,7 @@
  */
 
 import type { ApiResponse } from "$lib/core/types";
+import { getAuthHeader } from "$lib/auth";
 
 const NEUROFORGE_BASE_URL =
   import.meta.env.VITE_NEUROFORGE_URL || "http://localhost:8000";
@@ -81,7 +82,8 @@ export async function createPrompt(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": userId,
+          // NeuroForge takes the owner from this verified token, never from x-user-id.
+          ...getAuthHeader(),
         },
         body: JSON.stringify(data),
       }
@@ -132,7 +134,7 @@ export async function listPrompts(
 
     const response = await fetch(url, {
       headers: {
-        "x-user-id": userId,
+        ...getAuthHeader(),
       },
     });
 
@@ -172,7 +174,7 @@ export async function getPrompt(
       `${NEUROFORGE_BASE_URL}/api/v1/workbench/prompts/${promptId}`,
       {
         headers: {
-          "x-user-id": userId,
+          ...getAuthHeader(),
         },
       }
     );
@@ -226,7 +228,7 @@ export async function updatePrompt(
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": userId,
+          ...getAuthHeader(),
         },
         body: JSON.stringify(data),
       }
@@ -279,7 +281,7 @@ export async function deletePrompt(
       {
         method: "DELETE",
         headers: {
-          "x-user-id": userId,
+          ...getAuthHeader(),
         },
       }
     );
