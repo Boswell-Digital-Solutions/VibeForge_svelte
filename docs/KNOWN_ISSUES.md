@@ -25,4 +25,5 @@
 - Evidence: the same jobs fail on `master` push run 36749419622 (2026-09-30) and on the CI-scope PR run 37017895820. The CI-scope change did not cause it.
 - Likely root cause (not tested): `pnpm-lock.yaml` is `lockfileVersion: '9.0'` and `ci.yml` pins pnpm 8, which cannot read a v9 lockfile and reports it as absent.
 - Fix: pin pnpm 9 or newer in `ci.yml`, or regenerate the lockfile with pnpm 8.
-- Scope: open.
+- 2026-10-27 update: the root cause is confirmed. Locally, pnpm 10.26.2 accepts the lockfile with `pnpm install --frozen-lockfile --lockfile-only`. `ci.yml`, `e2e-manual.yml` and `e2e-nightly.yml` now pin pnpm 10, which matches the operator machine.
+- Scope: closed for the install failure. After install passes, the code jobs still fail on the existing unit-test and `svelte-check` errors. That is a separate open issue.
