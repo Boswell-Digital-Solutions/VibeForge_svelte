@@ -27,3 +27,9 @@
 - Fix: pin pnpm 9 or newer in `ci.yml`, or regenerate the lockfile with pnpm 8.
 - 2026-10-27 update: the root cause is confirmed. Locally, pnpm 10.26.2 accepts the lockfile with `pnpm install --frozen-lockfile --lockfile-only`. `ci.yml`, `e2e-manual.yml` and `e2e-nightly.yml` now pin pnpm 10, which matches the operator machine.
 - Scope: closed for the install failure. After install passes, the code jobs still fail on the existing unit-test and `svelte-check` errors. That is a separate open issue.
+
+## 2026-10-27 - Code CI fails on unit tests and type check on `master` (open)
+
+- What is wrong: with the pnpm 10 pin, install passes and the tests run. Unit Tests reports 23 of 51 files and 142 of 1315 tests failed (run 40458371007). Lint & Type Check and the three E2E jobs also fail.
+- Root cause: not investigated. The install failure hid these results from CI since at least 2026-08.
+- Scope: open. Fix the failing suites before a code PR can show green.
