@@ -98,13 +98,13 @@ export class McpClientManager {
 			this.notifyListeners();
 		});
 
-		client.on('error', (event) => {
+		client.on<{ error?: { message?: string } }>('error', (event) => {
 			server.status = 'error';
 			server.error = event.data?.error?.message || 'Unknown error';
 			this.notifyListeners();
 		});
 
-		client.on('tool-list-updated', (event) => {
+		client.on<{ tools?: McpTool[] }>('tool-list-updated', (event) => {
 			server.tools = event.data?.tools || [];
 			this.notifyListeners();
 		});

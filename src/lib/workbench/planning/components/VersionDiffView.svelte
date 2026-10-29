@@ -222,16 +222,14 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 				<div class="stat-item stat-identical">
 					<span class="stat-icon">=</span>
 					<span class="stat-value">
-						{diff.sectionDiffs.filter((d) => d.type === 'identical').length}
+						{diff.sectionDiffs.filter((d) => d.type === 'unchanged').length}
 					</span>
 					<span class="stat-label">identical</span>
 				</div>
 			</div>
 
 			<div class="section-diffs-list">
-				{#each diff.sectionDiffs as sectionDiff}
-					<SectionDiffView diff={sectionDiff} />
-				{/each}
+				<SectionDiffView diffs={diff.sectionDiffs} />
 			</div>
 		</div>
 	</div>

@@ -14,6 +14,7 @@
 import type {
   ContextBlock,
   Workspace,
+  WorkspaceSettings,
   ApiResponse,
   PaginatedResponse,
 } from "$lib/core/types";
@@ -239,7 +240,7 @@ export interface CreateWorkspaceRequest {
   description?: string;
   contextIds?: string[];
   modelIds?: string[];
-  settings?: Record<string, unknown>;
+  settings?: WorkspaceSettings;
 }
 
 export async function listWorkspaces(): Promise<Workspace[]> {

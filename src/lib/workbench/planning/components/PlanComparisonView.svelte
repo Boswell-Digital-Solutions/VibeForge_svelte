@@ -104,7 +104,7 @@ function handleClose() {
 								class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
 								title="Export as JSON"
 							>
-								{} JSON
+								{'{}'} JSON
 							</button>
 							<button
 								onclick={() => handleExport('html')}
@@ -204,7 +204,7 @@ function handleClose() {
 							<div class="flex justify-between">
 								<span class="text-gray-600 dark:text-gray-400">Pipeline:</span>
 								<span class="font-medium text-gray-800 dark:text-gray-200">
-									{comp.sessionA.config.type}
+									{comp.sessionA.pipeline.type}
 								</span>
 							</div>
 							<div class="flex justify-between">
@@ -237,7 +237,7 @@ function handleClose() {
 							<div class="flex justify-between">
 								<span class="text-gray-600 dark:text-gray-400">Pipeline:</span>
 								<span class="font-medium text-gray-800 dark:text-gray-200">
-									{comp.sessionB.config.type}
+									{comp.sessionB.pipeline.type}
 								</span>
 							</div>
 							<div class="flex justify-between">

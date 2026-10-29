@@ -35,19 +35,11 @@
 
 	// Configure marked for syntax highlighting
 	onMount(() => {
+		// marked dropped the `highlight` option in v5; code blocks are highlighted
+		// after render by hljs.highlightElement in the $effect below.
 		marked.setOptions({
 			breaks: true,
 			gfm: true,
-			highlight: (code: string, lang: string) => {
-				if (lang && hljs.getLanguage(lang)) {
-					try {
-						return hljs.highlight(code, { language: lang }).value;
-					} catch (err) {
-						console.warn('Highlight failed:', err);
-					}
-				}
-				return hljs.highlightAuto(code).value;
-			},
 		});
 	});
 

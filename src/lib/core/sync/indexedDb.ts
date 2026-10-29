@@ -67,17 +67,21 @@ const STORES = {
 };
 
 let dbInstance: IDBDatabase | null = null;
+let dbOpening: Promise<IDBDatabase> | null = null;
 
 async function openDatabase(): Promise<IDBDatabase> {
   if (dbInstance) return dbInstance;
+  // Share a single open request: callers arriving during the upgrade must not
+  // start a second one, or their transactions race the versionchange.
+  if (dbOpening) return dbOpening;
 
-  return new Promise((resolve, reject) => {
+  dbOpening = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       dbInstance = request.result;
-      resolve(dbInstance);
+      resolve(request.result);
     };
 
     request.onupgradeneeded = (event) => {
@@ -115,6 +119,27 @@ async function openDatabase(): Promise<IDBDatabase> {
       }
     };
   });
+
+  try {
+    return await dbOpening;
+  } finally {
+    dbOpening = null;
+  }
+}
+
+/**
+ * Close the cached connection and drop it from the cache.
+ *
+ * Use this instead of calling close() on the connection openDatabase() returns:
+ * that connection is shared, and a closed one left in the cache makes every
+ * later transaction fail with InvalidStateError.
+ */
+export function closeDatabase(): void {
+  if (dbInstance) {
+    dbInstance.close();
+    dbInstance = null;
+  }
+  dbOpening = null;
 }
 
 // ============================================================================
@@ -295,10 +320,19 @@ export const syncMetadataStore = {
     await put(STORES.syncMetadata, metadata);
   },
   async getPending(): Promise<SyncMetadata[]> {
-    return query<SyncMetadata>(STORES.syncMetadata, 'isPending', 1); // IDB uses 1/0 for boolean
+    // A boolean is not a valid IndexedDB key, so the isPending index never
+    // holds these records. Filter the (local-cache sized) collection instead.
+    const all = await getAll<SyncMetadata>(STORES.syncMetadata);
+    return all.filter((metadata) => metadata.isPending);
   },
   async getConflicts(): Promise<SyncMetadata[]> {
-    return query<SyncMetadata>(STORES.syncMetadata, 'hasConflict', 1);
+    const all = await getAll<SyncMetadata>(STORES.syncMetadata);
+    return all.filter((metadata) => metadata.hasConflict);
+  },
+  async getByResourceType(
+    resourceType: SyncMetadata['resourceType']
+  ): Promise<SyncMetadata[]> {
+    return query<SyncMetadata>(STORES.syncMetadata, 'resourceType', resourceType);
   },
   async delete(id: string): Promise<void> {
     await remove(STORES.syncMetadata, id);
@@ -315,6 +349,9 @@ export const syncMetadataStore = {
 export const pendingOperationsStore = {
   async add(operation: PendingOperation): Promise<void> {
     await put(STORES.pendingOperations, operation);
+  },
+  async get(id: string): Promise<PendingOperation | null> {
+    return get<PendingOperation>(STORES.pendingOperations, id);
   },
   async getAll(): Promise<PendingOperation[]> {
     const ops = await getAll<PendingOperation>(STORES.pendingOperations);
@@ -359,6 +396,9 @@ export const conflictsStore = {
     });
   },
   async remove(id: string): Promise<void> {
+    await remove(STORES.conflicts, id);
+  },
+  async delete(id: string): Promise<void> {
     await remove(STORES.conflicts, id);
   },
   async clear(): Promise<void> {

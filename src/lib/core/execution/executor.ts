@@ -248,7 +248,13 @@ export class ExecutionOrchestrator {
     }
 
     try {
-      // Get provider
+      // Get provider. ModelProvider also admits 'neuroforge', which is routed
+      // by NeuroForge rather than constructed here, so refuse it explicitly.
+      if (model.provider === 'neuroforge') {
+        throw new Error(
+          `Model ${model.id} routes through NeuroForge; this executor cannot call it directly`
+        );
+      }
       const provider = llmManager.getProvider(model.provider);
 
       // Build completion request
@@ -267,18 +273,31 @@ export class ExecutionOrchestrator {
         let output = '';
         let tokenIndex = 0;
 
-        const streamCallback = (token: string) => {
-          output += token;
-          onStreamEvent?.(
-            this.createStreamEvent('token', runId, model.id, {
-              type: 'token',
-              token,
-              index: tokenIndex++,
-            })
-          );
-        };
+        let streamed: LLMCompletionResponse | null = null;
 
-        response = await provider.complete(completionRequest, streamCallback);
+        await provider.completeStream(completionRequest, {
+          onChunk: (chunk) => {
+            output += chunk.content;
+            onStreamEvent?.(
+              this.createStreamEvent('token', runId, model.id, {
+                type: 'token',
+                token: chunk.content,
+                index: tokenIndex++,
+              })
+            );
+          },
+          onComplete: (completed) => {
+            streamed = completed;
+          },
+        });
+
+        // Read through an annotated alias: the assignment happens in a callback,
+        // which narrowing cannot see.
+        const streamedResponse = streamed as LLMCompletionResponse | null;
+        if (!streamedResponse) {
+          throw new Error(`Streaming completion returned no response for ${model.id}`);
+        }
+        response = streamedResponse;
       } else {
         // Non-streaming execution
         response = await provider.complete(completionRequest);

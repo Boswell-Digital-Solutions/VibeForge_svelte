@@ -578,7 +578,7 @@ function suggestPatterns(promptText: string, limit: number = 5): void {
 
 	try {
 		// Analyze prompt and get suggestions
-		const result = patternMatcher.analyzePrompt(state.patterns, promptText, limit);
+		const result = patternMatcher.analyzePrompt(promptText, state.patterns, limit);
 
 		// Update state
 		state.lastMatchResult = result;

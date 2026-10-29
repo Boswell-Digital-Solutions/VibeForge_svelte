@@ -3,6 +3,13 @@
  * Complete type system for 4-stage planning workflow
  */
 
+import {
+	compareSections as compareVersionSections,
+	extractSections,
+	type PlanSection,
+	type SectionDiff
+} from './planComparison';
+
 // ==============================================================================
 // ENUMS
 // ==============================================================================
@@ -855,9 +862,6 @@ export function comparePlanVersions(
 	versionA: PlanVersion,
 	versionB: PlanVersion
 ): PlanDiff {
-	const { extractSections, compareSections: compareVersionSections } =
-		require('./planComparison');
-
 	// Extract sections from both plans
 	const sectionsA = extractSections(versionA.deliverable.implementationPlan.content);
 	const sectionsB = extractSections(versionB.deliverable.implementationPlan.content);

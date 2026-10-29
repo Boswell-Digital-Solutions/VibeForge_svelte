@@ -268,8 +268,8 @@ async function create(data: CreateWorkspaceRequest) {
       name: data.name,
       description: data.description || '',
       settings: data.settings || { theme: 'dark', autoSave: true },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // Optimistically update UI immediately
@@ -321,7 +321,7 @@ async function update(id: string, data: Partial<CreateWorkspaceRequest>) {
       name: data.name ?? existing.name,
       description: data.description ?? existing.description,
       settings: data.settings ?? existing.settings,
-      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // Optimistically update UI immediately

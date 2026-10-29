@@ -61,6 +61,8 @@
     const success = await projectOutcomesStore.submitFeedback({
       projectOutcomeId,
       ...formData,
+      // The form uses null for "unanswered"; the request omits the field instead.
+      wouldRecommend: formData.wouldRecommend ?? undefined,
     });
 
     if (success) {

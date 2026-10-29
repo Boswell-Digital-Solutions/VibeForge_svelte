@@ -1,3 +1,5 @@
+// jsdom provides no IndexedDB, so every store backed by it failed at runtime.
+import "fake-indexeddb/auto";
 import "@testing-library/jest-dom";
 import { vi } from "vitest";
 

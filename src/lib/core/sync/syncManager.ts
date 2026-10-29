@@ -364,6 +364,7 @@ export async function deleteRun(id: string): Promise<void> {
         operation: 'delete',
         data: null,
         timestamp: new Date().toISOString(),
+        retryCount: 0,
       });
     }
   }

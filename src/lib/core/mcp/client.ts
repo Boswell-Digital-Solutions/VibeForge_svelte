@@ -253,7 +253,11 @@ export class McpClient {
 			}, this.config.timeout);
 
 			// Store pending request
-			this.pendingRequests.set(id, { resolve, reject, timeout });
+			this.pendingRequests.set(id, {
+				resolve: resolve as (result: unknown) => void,
+				reject,
+				timeout
+			});
 
 			// Send request based on transport
 			try {

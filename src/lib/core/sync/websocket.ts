@@ -58,15 +58,7 @@ export class WebSocketSync {
     this.url = DATAFORGE_WS_URL;
 
     // Create BroadcastChannel for tab synchronization
-    if (typeof BroadcastChannel !== 'undefined') {
-      this.broadcast = new BroadcastChannel('vibeforge-sync');
-      this.broadcast.onmessage = (event) => {
-        // Handle updates from other tabs
-        if (event.data.type === 'resource_update') {
-          this.notifyHandlers(event.data.update);
-        }
-      };
-    }
+    this.openBroadcastChannel();
   }
 
   /**
@@ -77,6 +69,9 @@ export class WebSocketSync {
       console.log('[WebSocket] Already connected');
       return;
     }
+
+    // disconnect() closes the channel, so reopen it when reconnecting.
+    this.openBroadcastChannel();
 
     return new Promise((resolve, reject) => {
       try {
@@ -133,6 +128,10 @@ export class WebSocketSync {
       this.ws.close();
       this.ws = null;
     }
+    if (this.broadcast) {
+      this.broadcast.close();
+      this.broadcast = null;
+    }
     this.stopHeartbeat();
     this.isConnected = false;
   }
@@ -157,6 +156,21 @@ export class WebSocketSync {
   // ============================================================================
   // PRIVATE METHODS
   // ============================================================================
+
+  /** Open the tab-sync channel if the environment has one and it is not open. */
+  private openBroadcastChannel(): void {
+    if (this.broadcast || typeof BroadcastChannel === 'undefined') {
+      return;
+    }
+
+    this.broadcast = new BroadcastChannel('vibeforge-sync');
+    this.broadcast.onmessage = (event) => {
+      // Handle updates from other tabs
+      if (event.data.type === 'resource_update') {
+        this.notifyHandlers(event.data.update);
+      }
+    };
+  }
 
   private async handleMessage(message: WebSocketMessage): Promise<void> {
     switch (message.event) {

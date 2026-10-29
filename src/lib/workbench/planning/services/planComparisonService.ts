@@ -40,7 +40,7 @@ export class PlanComparisonService {
 	 * @returns Quality assessment
 	 */
 	scoreQuality(session: PlanningSession): QualityAssessment {
-		const plan = session.deliverable?.implementationPlan || '';
+		const plan = session.deliverable?.implementationPlan?.content || '';
 
 		if (!plan || plan.trim().length === 0) {
 			return this.createEmptyAssessment(session.id);
@@ -529,8 +529,8 @@ export class PlanComparisonService {
 		const qualityB = this.scoreQuality(sessionB);
 
 		// Extract and compare sections
-		const planA = sessionA.deliverable?.implementationPlan || '';
-		const planB = sessionB.deliverable?.implementationPlan || '';
+		const planA = sessionA.deliverable?.implementationPlan?.content || '';
+		const planB = sessionB.deliverable?.implementationPlan?.content || '';
 		const sectionsA = extractSections(planA);
 		const sectionsB = extractSections(planB);
 

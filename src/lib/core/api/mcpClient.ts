@@ -22,7 +22,64 @@ import type {
   InvokeToolResponse,
 } from '$lib/core/types';
 import { mcpManager } from '$lib/core/mcp/manager';
-import type { McpTool as McpProtocolTool } from '$lib/core/mcp/types';
+import type {
+  McpTool as McpProtocolTool,
+  McpConnectionStatus,
+  McpSchemaProperty as McpProtocolSchemaProperty,
+} from '$lib/core/mcp/types';
+import type {
+  McpServerStatus,
+  McpSchemaProperty,
+  McpToolInputSchema,
+} from '$lib/core/types';
+
+// ============================================================================
+// PROTOCOL -> DOMAIN CONVERSION
+// ============================================================================
+// The protocol types in $lib/core/mcp/types are deliberately wider than the
+// domain types here, so each crossing narrows explicitly rather than casting.
+
+/** The protocol models a 'connecting' state the domain status does not. */
+function toServerStatus(status: McpConnectionStatus): McpServerStatus {
+  return status === 'connecting' ? 'disconnected' : status;
+}
+
+const SCHEMA_TYPES: readonly string[] = [
+  'string',
+  'number',
+  'boolean',
+  'array',
+  'object',
+];
+
+/** The protocol types a property as a bare string; narrow it to the union. */
+function toSchemaProperty(
+  property: McpProtocolSchemaProperty
+): McpSchemaProperty {
+  return {
+    type: SCHEMA_TYPES.includes(property.type)
+      ? (property.type as McpSchemaProperty['type'])
+      : 'string',
+    description: property.description,
+    enum: property.enum,
+    items: property.items ? toSchemaProperty(property.items) : undefined,
+  };
+}
+
+function toInputSchema(
+  schema: McpProtocolTool['inputSchema']
+): McpToolInputSchema {
+  return {
+    type: 'object',
+    properties: Object.fromEntries(
+      Object.entries(schema.properties).map(([key, value]) => [
+        key,
+        toSchemaProperty(value),
+      ])
+    ),
+    required: schema.required,
+  };
+}
 
 // Flag to enable real MCP or use mock data
 const USE_REAL_MCP = true;
@@ -49,7 +106,7 @@ export async function listServers(
         name: server.name,
         description: server.description,
         version: serverInfo?.version || '1.0.0',
-        status: server.status,
+        status: toServerStatus(server.status),
         endpoint: server.config.url || '',
         capabilities: {
           supportsToolDiscovery: serverInfo?.capabilities?.tools?.list ?? true,
@@ -115,7 +172,7 @@ function convertProtocolTool(protocolTool: McpProtocolTool, serverId: string): M
     name: protocolTool.name,
     description: protocolTool.description,
     category: inferToolCategory(protocolTool.name),
-    inputSchema: protocolTool.inputSchema,
+    inputSchema: toInputSchema(protocolTool.inputSchema),
     isFavorite: false,
   };
 }
@@ -382,7 +439,10 @@ export async function invokeTool(
         startedAt,
         completedAt,
         durationMs,
-        error: error instanceof Error ? error.message : String(error),
+        error: {
+          code: 'invocation_failed',
+          message: error instanceof Error ? error.message : String(error),
+        },
       };
 
       return { invocation };
