@@ -1,14 +1,18 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { workspaceStore } from "$lib/core/stores/workspace.svelte";
-import * as dataforgeClient from "$lib/core/api/dataforgeClient";
+import * as sync from "$lib/core/sync";
 import type { Workspace } from "$lib/core/types";
 
-// Mock the dataforgeClient module
-vi.mock("$lib/core/api/dataforgeClient", () => ({
+// The store is offline-first: it reads and writes through the sync layer, not
+// the raw API client. Mock what it actually depends on.
+vi.mock("$lib/core/sync", () => ({
   listWorkspaces: vi.fn(),
-  createWorkspace: vi.fn(),
-  updateWorkspace: vi.fn(),
+  saveWorkspace: vi.fn(),
   deleteWorkspace: vi.fn(),
+  getWorkspace: vi.fn(),
+  syncAll: vi.fn().mockResolvedValue({ synced: 0, failed: 0, conflicts: [] }),
+  getOnlineStatus: vi.fn(() => true),
+  initWebSocketSync: vi.fn(() => ({ subscribe: vi.fn(() => () => {}) })),
 }));
 
 describe("Workspace Store", () => {
@@ -195,18 +199,18 @@ describe("Workspace Store", () => {
   describe("load", () => {
     it("should load workspaces successfully", async () => {
       const mockWorkspaces = [mockWorkspace, mockWorkspace2];
-      vi.mocked(dataforgeClient.listWorkspaces).mockResolvedValue(mockWorkspaces);
+      vi.mocked(sync.listWorkspaces).mockResolvedValue(mockWorkspaces);
 
       await workspaceStore.load();
 
-      expect(dataforgeClient.listWorkspaces).toHaveBeenCalled();
+      expect(sync.listWorkspaces).toHaveBeenCalled();
       expect(workspaceStore.workspaces).toEqual(mockWorkspaces);
       expect(workspaceStore.error).toBeNull();
       expect(workspaceStore.isLoading).toBe(false);
     });
 
     it("should set loading state during load", async () => {
-      vi.mocked(dataforgeClient.listWorkspaces).mockImplementation(
+      vi.mocked(sync.listWorkspaces).mockImplementation(
         () =>
           new Promise((resolve) => {
             expect(workspaceStore.isLoading).toBe(true);
@@ -220,7 +224,7 @@ describe("Workspace Store", () => {
 
     it("should handle load error", async () => {
       const error = new Error("Failed to fetch workspaces");
-      vi.mocked(dataforgeClient.listWorkspaces).mockRejectedValue(error);
+      vi.mocked(sync.listWorkspaces).mockRejectedValue(error);
 
       await workspaceStore.load();
 
@@ -229,7 +233,7 @@ describe("Workspace Store", () => {
     });
 
     it("should handle non-Error objects", async () => {
-      vi.mocked(dataforgeClient.listWorkspaces).mockRejectedValue("String error");
+      vi.mocked(sync.listWorkspaces).mockRejectedValue("String error");
 
       await workspaceStore.load();
 
@@ -249,11 +253,13 @@ describe("Workspace Store", () => {
     };
 
     it("should create workspace successfully", async () => {
-      vi.mocked(dataforgeClient.createWorkspace).mockResolvedValue(mockWorkspace);
+      vi.mocked(sync.saveWorkspace).mockResolvedValue(mockWorkspace);
 
       const result = await workspaceStore.create(createRequest);
 
-      expect(dataforgeClient.createWorkspace).toHaveBeenCalledWith(createRequest);
+      expect(sync.saveWorkspace).toHaveBeenCalledWith(
+        expect.objectContaining(createRequest)
+      );
       expect(result).toEqual(mockWorkspace);
       expect(workspaceStore.workspaces).toHaveLength(1);
       expect(workspaceStore.workspaces[0]).toEqual(mockWorkspace);
@@ -264,11 +270,11 @@ describe("Workspace Store", () => {
 
     it("should prepend new workspace to list", async () => {
       // Set up initial workspaces
-      vi.mocked(dataforgeClient.listWorkspaces).mockResolvedValue([mockWorkspace2]);
+      vi.mocked(sync.listWorkspaces).mockResolvedValue([mockWorkspace2]);
       await workspaceStore.load();
 
       // Create new workspace
-      vi.mocked(dataforgeClient.createWorkspace).mockResolvedValue(mockWorkspace);
+      vi.mocked(sync.saveWorkspace).mockResolvedValue(mockWorkspace);
       await workspaceStore.create(createRequest);
 
       expect(workspaceStore.workspaces[0]).toEqual(mockWorkspace);
@@ -276,7 +282,7 @@ describe("Workspace Store", () => {
     });
 
     it("should set saving state during create", async () => {
-      vi.mocked(dataforgeClient.createWorkspace).mockImplementation(
+      vi.mocked(sync.saveWorkspace).mockImplementation(
         () =>
           new Promise((resolve) => {
             expect(workspaceStore.isSaving).toBe(true);
@@ -290,7 +296,7 @@ describe("Workspace Store", () => {
 
     it("should handle create error", async () => {
       const error = new Error("Failed to create");
-      vi.mocked(dataforgeClient.createWorkspace).mockRejectedValue(error);
+      vi.mocked(sync.saveWorkspace).mockRejectedValue(error);
 
       await expect(workspaceStore.create(createRequest)).rejects.toThrow(error);
       expect(workspaceStore.error).toBe("Failed to create");
@@ -298,7 +304,7 @@ describe("Workspace Store", () => {
     });
 
     it("should handle non-Error create failure", async () => {
-      vi.mocked(dataforgeClient.createWorkspace).mockRejectedValue("String error");
+      vi.mocked(sync.saveWorkspace).mockRejectedValue("String error");
 
       await expect(workspaceStore.create(createRequest)).rejects.toBe("String error");
       expect(workspaceStore.error).toBe("Failed to create workspace");
@@ -314,7 +320,7 @@ describe("Workspace Store", () => {
 
     beforeEach(async () => {
       // Set up initial workspaces
-      vi.mocked(dataforgeClient.listWorkspaces).mockResolvedValue([
+      vi.mocked(sync.listWorkspaces).mockResolvedValue([
         mockWorkspace,
         mockWorkspace2,
       ]);
@@ -324,11 +330,13 @@ describe("Workspace Store", () => {
 
     it("should update workspace successfully", async () => {
       const updatedWorkspace = { ...mockWorkspace, name: "Updated Workspace" };
-      vi.mocked(dataforgeClient.updateWorkspace).mockResolvedValue(updatedWorkspace);
+      vi.mocked(sync.saveWorkspace).mockResolvedValue(updatedWorkspace);
 
       const result = await workspaceStore.update("ws-1", updateData);
 
-      expect(dataforgeClient.updateWorkspace).toHaveBeenCalledWith("ws-1", updateData);
+      expect(sync.saveWorkspace).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "ws-1", ...updateData })
+      );
       expect(result).toEqual(updatedWorkspace);
       expect(workspaceStore.error).toBeNull();
       expect(workspaceStore.isSaving).toBe(false);
@@ -336,7 +344,7 @@ describe("Workspace Store", () => {
 
     it("should update workspace in list", async () => {
       const updatedWorkspace = { ...mockWorkspace, name: "Updated Workspace" };
-      vi.mocked(dataforgeClient.updateWorkspace).mockResolvedValue(updatedWorkspace);
+      vi.mocked(sync.saveWorkspace).mockResolvedValue(updatedWorkspace);
 
       await workspaceStore.update("ws-1", updateData);
 
@@ -346,7 +354,7 @@ describe("Workspace Store", () => {
 
     it("should update current workspace if it matches", async () => {
       const updatedWorkspace = { ...mockWorkspace, name: "Updated Workspace" };
-      vi.mocked(dataforgeClient.updateWorkspace).mockResolvedValue(updatedWorkspace);
+      vi.mocked(sync.saveWorkspace).mockResolvedValue(updatedWorkspace);
 
       await workspaceStore.update("ws-1", updateData);
 
@@ -355,7 +363,7 @@ describe("Workspace Store", () => {
 
     it("should not update current if different workspace", async () => {
       const updatedWorkspace = { ...mockWorkspace2, name: "Updated Workspace 2" };
-      vi.mocked(dataforgeClient.updateWorkspace).mockResolvedValue(updatedWorkspace);
+      vi.mocked(sync.saveWorkspace).mockResolvedValue(updatedWorkspace);
 
       await workspaceStore.update("ws-2", updateData);
 
@@ -365,7 +373,7 @@ describe("Workspace Store", () => {
 
     it("should set saving state during update", async () => {
       const updatedWorkspace = { ...mockWorkspace, name: "Updated" };
-      vi.mocked(dataforgeClient.updateWorkspace).mockImplementation(
+      vi.mocked(sync.saveWorkspace).mockImplementation(
         () =>
           new Promise((resolve) => {
             expect(workspaceStore.isSaving).toBe(true);
@@ -379,7 +387,7 @@ describe("Workspace Store", () => {
 
     it("should handle update error", async () => {
       const error = new Error("Failed to update");
-      vi.mocked(dataforgeClient.updateWorkspace).mockRejectedValue(error);
+      vi.mocked(sync.saveWorkspace).mockRejectedValue(error);
 
       await expect(workspaceStore.update("ws-1", updateData)).rejects.toThrow(error);
       expect(workspaceStore.error).toBe("Failed to update");
@@ -387,7 +395,7 @@ describe("Workspace Store", () => {
     });
 
     it("should handle non-Error update failure", async () => {
-      vi.mocked(dataforgeClient.updateWorkspace).mockRejectedValue("String error");
+      vi.mocked(sync.saveWorkspace).mockRejectedValue("String error");
 
       await expect(workspaceStore.update("ws-1", updateData)).rejects.toBe("String error");
       expect(workspaceStore.error).toBe("Failed to update workspace");
@@ -401,7 +409,7 @@ describe("Workspace Store", () => {
   describe("remove", () => {
     beforeEach(async () => {
       // Set up initial workspaces
-      vi.mocked(dataforgeClient.listWorkspaces).mockResolvedValue([
+      vi.mocked(sync.listWorkspaces).mockResolvedValue([
         mockWorkspace,
         mockWorkspace2,
       ]);
@@ -409,11 +417,11 @@ describe("Workspace Store", () => {
     });
 
     it("should delete workspace successfully", async () => {
-      vi.mocked(dataforgeClient.deleteWorkspace).mockResolvedValue(undefined);
+      vi.mocked(sync.deleteWorkspace).mockResolvedValue(undefined);
 
       await workspaceStore.remove("ws-1");
 
-      expect(dataforgeClient.deleteWorkspace).toHaveBeenCalledWith("ws-1");
+      expect(sync.deleteWorkspace).toHaveBeenCalledWith("ws-1");
       expect(workspaceStore.workspaces).not.toContain(mockWorkspace);
       expect(workspaceStore.workspaces).toHaveLength(1);
       expect(workspaceStore.error).toBeNull();
@@ -422,7 +430,7 @@ describe("Workspace Store", () => {
 
     it("should clear current workspace if it matches deleted one", async () => {
       workspaceStore.setWorkspace(mockWorkspace);
-      vi.mocked(dataforgeClient.deleteWorkspace).mockResolvedValue(undefined);
+      vi.mocked(sync.deleteWorkspace).mockResolvedValue(undefined);
 
       await workspaceStore.remove("ws-1");
 
@@ -431,7 +439,7 @@ describe("Workspace Store", () => {
 
     it("should not clear current if different workspace deleted", async () => {
       workspaceStore.setWorkspace(mockWorkspace);
-      vi.mocked(dataforgeClient.deleteWorkspace).mockResolvedValue(undefined);
+      vi.mocked(sync.deleteWorkspace).mockResolvedValue(undefined);
 
       await workspaceStore.remove("ws-2");
 
@@ -439,7 +447,7 @@ describe("Workspace Store", () => {
     });
 
     it("should set saving state during delete", async () => {
-      vi.mocked(dataforgeClient.deleteWorkspace).mockImplementation(
+      vi.mocked(sync.deleteWorkspace).mockImplementation(
         () =>
           new Promise((resolve) => {
             expect(workspaceStore.isSaving).toBe(true);
@@ -453,7 +461,7 @@ describe("Workspace Store", () => {
 
     it("should handle delete error", async () => {
       const error = new Error("Failed to delete");
-      vi.mocked(dataforgeClient.deleteWorkspace).mockRejectedValue(error);
+      vi.mocked(sync.deleteWorkspace).mockRejectedValue(error);
 
       await expect(workspaceStore.remove("ws-1")).rejects.toThrow(error);
       expect(workspaceStore.error).toBe("Failed to delete");
@@ -461,7 +469,7 @@ describe("Workspace Store", () => {
     });
 
     it("should handle non-Error delete failure", async () => {
-      vi.mocked(dataforgeClient.deleteWorkspace).mockRejectedValue("String error");
+      vi.mocked(sync.deleteWorkspace).mockRejectedValue("String error");
 
       await expect(workspaceStore.remove("ws-1")).rejects.toBe("String error");
       expect(workspaceStore.error).toBe("Failed to delete workspace");

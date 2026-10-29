@@ -333,7 +333,16 @@ function clearCurrentComparison(): void {
 function clearAllComparisons(): void {
 	state.comparisonHistory = [];
 	state.currentComparison = null;
-	saveToStorage([]);
+
+	// Remove the key rather than persisting an empty array, so a cleared
+	// history leaves nothing behind.
+	if (typeof window !== 'undefined') {
+		try {
+			localStorage.removeItem(STORAGE_KEY);
+		} catch (err) {
+			console.error('Failed to clear comparisons from localStorage:', err);
+		}
+	}
 }
 
 /**
@@ -471,7 +480,7 @@ function generateComparisonReport(
  * Format report as Markdown
  */
 function formatAsMarkdown(report: ComparisonReport): string {
-	let md = `# ${report.title}\n\n`;
+	let md = `# Plan Comparison\n\n## ${report.title}\n\n`;
 	md += `**Generated:** ${report.generatedAt.toLocaleString()}\n\n`;
 
 	// Executive Summary

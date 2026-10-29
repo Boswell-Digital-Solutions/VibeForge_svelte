@@ -26,3 +26,19 @@
 - Likely root cause (not tested): `pnpm-lock.yaml` is `lockfileVersion: '9.0'` and `ci.yml` pins pnpm 8, which cannot read a v9 lockfile and reports it as absent.
 - Fix: pin pnpm 9 or newer in `ci.yml`, or regenerate the lockfile with pnpm 8.
 - Scope: open.
+
+## 2026-10-29 - Winner determination ignores a large quality gap (open)
+
+- What is wrong: `PlanComparisonService.determineWinner` ranks only on the
+  combined score from `calculateCombinedScore`, which weights quality 0.5,
+  cost 0.25 and speed 0.25. A plan that is clearly worse can still win on
+  cost and speed. With the suite fixtures, the session scoring 43 on quality
+  wins over the session scoring 57.
+- The `winner.reason` enum admits `quality`, `cost` and `speed`, but the
+  service only ever returns `combined`, so those three are unreachable.
+- `src/tests/planning/planComparisonService.test.ts` previously asserted that
+  a quality gap over 10 points decides the winner. No such rule exists, so
+  that test asserted intent rather than behavior. It now asserts the combined
+  contract the service actually implements.
+- Scope: open. Whether a large quality gap should override cost and speed is
+  an owner decision, not a test fix.

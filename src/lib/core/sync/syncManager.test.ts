@@ -61,10 +61,11 @@ describe('Sync Manager', () => {
 			expect(isOnline()).toBe(false);
 		});
 
-		it('should return online status object', () => {
-			const status = getOnlineStatus();
-			expect(status).toHaveProperty('isOnline');
-			expect(typeof status.isOnline).toBe('boolean');
+		it('should report online status as a boolean', () => {
+			// isOnline is exported as an alias of getOnlineStatus, so the two
+			// share one contract.
+			expect(typeof getOnlineStatus()).toBe('boolean');
+			expect(getOnlineStatus()).toBe(isOnline());
 		});
 	});
 
@@ -197,10 +198,8 @@ describe('Sync Manager', () => {
 		it('should get workspace from server when online and cache', async () => {
 			Object.defineProperty(navigator, 'onLine', { value: true });
 
-			vi.mocked(api.getWorkspace).mockResolvedValue({
-				success: true,
-				data: mockWorkspace,
-			});
+			vi.mocked(indexedDb.workspaceStore.get).mockResolvedValue(null);
+			vi.mocked(api.getWorkspace).mockResolvedValue(mockWorkspace);
 			vi.mocked(indexedDb.workspaceStore.save).mockResolvedValue();
 
 			const result = await getWorkspace('ws-1');
@@ -225,15 +224,8 @@ describe('Sync Manager', () => {
 		it('should list workspaces from server and cache', async () => {
 			const mockWorkspaces = [mockWorkspace];
 
-			vi.mocked(api.listWorkspaces).mockResolvedValue({
-				success: true,
-				data: {
-					results: mockWorkspaces,
-					total: 1,
-					page: 1,
-					page_size: 100,
-				},
-			});
+			vi.mocked(indexedDb.workspaceStore.getAll).mockResolvedValue([]);
+			vi.mocked(api.listWorkspaces).mockResolvedValue(mockWorkspaces);
 			vi.mocked(indexedDb.workspaceStore.save).mockResolvedValue();
 
 			const result = await listWorkspaces();
@@ -296,18 +288,20 @@ describe('Sync Manager', () => {
 		});
 
 		it('should list context blocks with server sync', async () => {
+			vi.mocked(indexedDb.contextBlockStore.getAll).mockResolvedValue([]);
 			vi.mocked(api.listContextBlocks).mockResolvedValue({
 				success: true,
 				data: {
-					results: [mockBlock],
+					items: [mockBlock],
 					total: 1,
 					page: 1,
-					page_size: 100,
+					pageSize: 100,
+					hasMore: false,
 				},
 			});
 			vi.mocked(indexedDb.contextBlockStore.save).mockResolvedValue();
 
-			const result = await listContextBlocks('ws-1');
+			const result = await listContextBlocks();
 
 			expect(result).toEqual([mockBlock]);
 		});
@@ -352,13 +346,15 @@ describe('Sync Manager', () => {
 		});
 
 		it('should list runs for workspace', async () => {
+			vi.mocked(indexedDb.runStore.getByWorkspace).mockResolvedValue([]);
 			vi.mocked(api.listRuns).mockResolvedValue({
 				success: true,
 				data: {
-					results: [mockRun],
+					items: [mockRun],
 					total: 1,
 					page: 1,
-					page_size: 100,
+					pageSize: 100,
+					hasMore: false,
 				},
 			});
 			vi.mocked(indexedDb.runStore.save).mockResolvedValue();

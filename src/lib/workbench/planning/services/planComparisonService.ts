@@ -628,11 +628,13 @@ export class PlanComparisonService {
 				durationMs: durationB,
 				stageCount: sessionB.stages.length
 			},
+			// Differences read as sessionA minus sessionB: positive means A spent
+			// more. See the contract note on PlanComparison.metricsComparison.
 			differences: {
-				tokenDiff: sessionB.totalTokens - sessionA.totalTokens,
-				costDiff: sessionB.totalCost - sessionA.totalCost,
-				durationDiff: durationB - durationA,
-				stageDiff: sessionB.stages.length - sessionA.stages.length
+				tokenDiff: sessionA.totalTokens - sessionB.totalTokens,
+				costDiff: sessionA.totalCost - sessionB.totalCost,
+				durationDiff: durationA - durationB,
+				stageDiff: sessionA.stages.length - sessionB.stages.length
 			}
 		};
 	}

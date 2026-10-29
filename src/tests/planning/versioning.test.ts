@@ -330,6 +330,8 @@ describe('createVersionedPlanningSession', () => {
 			'Test Description',
 			'feature',
 			'default',
+			'anonymous',
+			'default',
 			null
 		);
 
@@ -348,6 +350,8 @@ describe('createVersionedPlanningSession', () => {
 			'Test Description',
 			'feature',
 			'default',
+			'anonymous',
+			'default',
 			'parent_123'
 		);
 
@@ -363,6 +367,8 @@ describe('Integration Tests', () => {
 			'Auth Feature',
 			'Implement authentication',
 			'feature',
+			'default',
+			'anonymous',
 			'default',
 			null
 		);

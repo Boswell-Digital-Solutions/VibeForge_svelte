@@ -61,6 +61,12 @@ if (typeof window !== 'undefined') {
 }
 
 export function getOnlineStatus(): boolean {
+  // Refresh from the live value where the environment has one. The cached flag
+  // only changes on online/offline events, and a missed event would strand
+  // every branch below on a stale answer.
+  if (typeof navigator !== 'undefined' && typeof navigator.onLine === 'boolean') {
+    isOnline = navigator.onLine;
+  }
   return isOnline;
 }
 
@@ -109,7 +115,7 @@ export async function saveWorkspace(workspace: Workspace): Promise<Workspace> {
   const metadata = await createSyncMetadata(workspace.id, 'workspace');
   await indexedDb.syncMetadataStore.save(metadata);
 
-  if (isOnline) {
+  if (getOnlineStatus()) {
     try {
       // Sync to server
       const existing = await api.getWorkspace(workspace.id).catch(() => null);
@@ -147,21 +153,28 @@ export async function deleteWorkspace(id: string): Promise<void> {
   // Delete from IndexedDB immediately
   await indexedDb.workspaceStore.delete(id);
 
-  if (isOnline) {
-    try {
-      await api.deleteWorkspace(id);
-      await indexedDb.syncMetadataStore.delete(`workspace:${id}`);
-    } catch (error) {
-      console.error('[SyncManager] Failed to delete workspace:', error);
-      await indexedDb.pendingOperationsStore.add({
-        id: `pending_${Date.now()}`,
-        resourceType: 'workspace',
-        operation: 'delete',
-        resourceId: id,
-        timestamp: new Date().toISOString(),
-        retryCount: 0,
-      });
-    }
+  const pendingDelete: PendingOperation = {
+    id: `pending_${Date.now()}`,
+    resourceType: 'workspace',
+    operation: 'delete',
+    resourceId: id,
+    timestamp: new Date().toISOString(),
+    retryCount: 0,
+  };
+
+  // Offline, the delete still has to reach the server later. Queueing it
+  // only in the catch below dropped every offline delete silently.
+  if (!getOnlineStatus()) {
+    await indexedDb.pendingOperationsStore.add(pendingDelete);
+    return;
+  }
+
+  try {
+    await api.deleteWorkspace(id);
+    await indexedDb.syncMetadataStore.delete(`workspace:${id}`);
+  } catch (error) {
+    console.error('[SyncManager] Failed to delete workspace:', error);
+    await indexedDb.pendingOperationsStore.add(pendingDelete);
   }
 }
 
@@ -169,7 +182,7 @@ export async function getWorkspace(id: string): Promise<Workspace | null> {
   // Try IndexedDB first
   let workspace = await indexedDb.workspaceStore.get(id);
 
-  if (!workspace && isOnline) {
+  if (!workspace && getOnlineStatus()) {
     // Fallback to server
     try {
       workspace = await api.getWorkspace(id);
@@ -188,7 +201,7 @@ export async function listWorkspaces(): Promise<Workspace[]> {
   // Try IndexedDB first
   let workspaces = await indexedDb.workspaceStore.getAll();
 
-  if (workspaces.length === 0 && isOnline) {
+  if (workspaces.length === 0 && getOnlineStatus()) {
     // Fallback to server
     try {
       workspaces = await api.listWorkspaces();
@@ -210,7 +223,7 @@ export async function saveContextBlock(block: ContextBlock): Promise<ContextBloc
   const metadata = await createSyncMetadata(block.id, 'contextBlock');
   await indexedDb.syncMetadataStore.save(metadata);
 
-  if (isOnline) {
+  if (getOnlineStatus()) {
     try {
       const result = await api.getContextBlock(block.id);
       const saved = result.success && result.data
@@ -245,28 +258,35 @@ export async function saveContextBlock(block: ContextBlock): Promise<ContextBloc
 export async function deleteContextBlock(id: string): Promise<void> {
   await indexedDb.contextBlockStore.delete(id);
 
-  if (isOnline) {
-    try {
-      await api.deleteContextBlock(id);
-      await indexedDb.syncMetadataStore.delete(`contextBlock:${id}`);
-    } catch (error) {
-      console.error('[SyncManager] Failed to delete context block:', error);
-      await indexedDb.pendingOperationsStore.add({
-        id: `pending_${Date.now()}`,
-        resourceType: 'contextBlock',
-        operation: 'delete',
-        resourceId: id,
-        timestamp: new Date().toISOString(),
-        retryCount: 0,
-      });
-    }
+  const pendingDelete: PendingOperation = {
+    id: `pending_${Date.now()}`,
+    resourceType: 'contextBlock',
+    operation: 'delete',
+    resourceId: id,
+    timestamp: new Date().toISOString(),
+    retryCount: 0,
+  };
+
+  // Offline, the delete still has to reach the server later. Queueing it
+  // only in the catch below dropped every offline delete silently.
+  if (!getOnlineStatus()) {
+    await indexedDb.pendingOperationsStore.add(pendingDelete);
+    return;
+  }
+
+  try {
+    await api.deleteContextBlock(id);
+    await indexedDb.syncMetadataStore.delete(`contextBlock:${id}`);
+  } catch (error) {
+    console.error('[SyncManager] Failed to delete context block:', error);
+    await indexedDb.pendingOperationsStore.add(pendingDelete);
   }
 }
 
 export async function listContextBlocks(): Promise<ContextBlock[]> {
   let blocks = await indexedDb.contextBlockStore.getAll();
 
-  if (blocks.length === 0 && isOnline) {
+  if (blocks.length === 0 && getOnlineStatus()) {
     try {
       const result = await api.listContextBlocks();
       if (result.success && result.data) {
@@ -290,7 +310,7 @@ export async function saveRun(run: Run): Promise<Run> {
   const metadata = await createSyncMetadata(run.id, 'run');
   await indexedDb.syncMetadataStore.save(metadata);
 
-  if (isOnline) {
+  if (getOnlineStatus()) {
     try {
       const result = await api.getRun(run.id);
       const saved = result.success && result.data
@@ -333,7 +353,7 @@ export async function listRuns(workspaceId?: string): Promise<Run[]> {
     ? await indexedDb.runStore.getByWorkspace(workspaceId)
     : await indexedDb.runStore.getAll();
 
-  if (runs.length === 0 && isOnline) {
+  if (runs.length === 0 && getOnlineStatus()) {
     try {
       const result = await api.listRuns(workspaceId);
       if (result.success && result.data) {
@@ -351,22 +371,29 @@ export async function listRuns(workspaceId?: string): Promise<Run[]> {
 export async function deleteRun(id: string): Promise<void> {
   await indexedDb.runStore.delete(id);
 
-  if (isOnline) {
-    try {
-      await api.deleteRun(id);
-      await indexedDb.syncMetadataStore.delete(`run:${id}`);
-    } catch (error) {
-      console.error('[SyncManager] Failed to delete run:', error);
-      await indexedDb.pendingOperationsStore.add({
-        id: `pending_${Date.now()}`,
-        resourceType: 'run',
-        resourceId: id,
-        operation: 'delete',
-        data: null,
-        timestamp: new Date().toISOString(),
-        retryCount: 0,
-      });
-    }
+  const pendingDelete: PendingOperation = {
+    id: `pending_${Date.now()}`,
+    resourceType: 'run',
+    resourceId: id,
+    operation: 'delete',
+    data: null,
+    timestamp: new Date().toISOString(),
+    retryCount: 0,
+  };
+
+  // Offline, the delete still has to reach the server later. Queueing it
+  // only in the catch below dropped every offline delete silently.
+  if (!getOnlineStatus()) {
+    await indexedDb.pendingOperationsStore.add(pendingDelete);
+    return;
+  }
+
+  try {
+    await api.deleteRun(id);
+    await indexedDb.syncMetadataStore.delete(`run:${id}`);
+  } catch (error) {
+    console.error('[SyncManager] Failed to delete run:', error);
+    await indexedDb.pendingOperationsStore.add(pendingDelete);
   }
 }
 
@@ -379,7 +406,7 @@ export async function savePromptTemplate(template: PromptTemplate): Promise<Prom
   const metadata = await createSyncMetadata(template.id, 'promptTemplate');
   await indexedDb.syncMetadataStore.save(metadata);
 
-  if (isOnline) {
+  if (getOnlineStatus()) {
     try {
       const result = await api.getPromptTemplate(template.id);
       const saved = result.success && result.data
@@ -425,7 +452,7 @@ export async function savePromptTemplate(template: PromptTemplate): Promise<Prom
 // ============================================================================
 
 export async function syncAll(options: SyncOptions = {}): Promise<SyncResult> {
-  if (!isOnline && !options.forceSync) {
+  if (!getOnlineStatus() && !options.forceSync) {
     return {
       success: false,
       synced: 0,

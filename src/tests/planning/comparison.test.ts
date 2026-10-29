@@ -42,18 +42,32 @@ const mockSessionA: PlanningSession = {
 		}
 	],
 	deliverable: {
-		implementationPlan: '## Overview\nDetailed plan for Session A.',
-		claudeCodePrompt: 'Implement Session A.',
+		implementationPlan: {
+			content: '## Overview\nDetailed plan for Session A.',
+			filename: 'session_a_plan.md'
+		},
+		claudeCodePrompt: {
+			content: 'Implement Session A.',
+			filename: 'session_a_prompt.md'
+		},
 		metadata: {
 			title: 'Session A',
 			estimatedTime: '1 week',
-			phases: 1,
+			phases: ['Phase A'],
 			successCriteria: ['Criteria A']
 		}
 	},
 	status: 'completed',
+	currentStageIndex: 0,
+	totalTokens: 300,
+	totalCost: 0.015,
 	createdAt: new Date('2025-01-01T10:00:00Z'),
-	completedAt: new Date('2025-01-01T10:05:00Z')
+	startedAt: new Date('2025-01-01T10:00:00Z'),
+	pausedAt: null,
+	completedAt: new Date('2025-01-01T10:05:00Z'),
+	error: null,
+	userId: 'user_test',
+	workspaceId: 'ws_test'
 };
 
 const mockSessionB: PlanningSession = {
@@ -83,18 +97,32 @@ const mockSessionB: PlanningSession = {
 		}
 	],
 	deliverable: {
-		implementationPlan: '## Overview\nDetailed plan for Session B.',
-		claudeCodePrompt: 'Implement Session B.',
+		implementationPlan: {
+			content: '## Overview\nDetailed plan for Session B.',
+			filename: 'session_b_plan.md'
+		},
+		claudeCodePrompt: {
+			content: 'Implement Session B.',
+			filename: 'session_b_prompt.md'
+		},
 		metadata: {
 			title: 'Session B',
 			estimatedTime: '3 days',
-			phases: 1,
+			phases: ['Phase B'],
 			successCriteria: ['Criteria B']
 		}
 	},
 	status: 'completed',
+	currentStageIndex: 0,
+	totalTokens: 230,
+	totalCost: 0.0115,
 	createdAt: new Date('2025-01-01T11:00:00Z'),
-	completedAt: new Date('2025-01-01T11:03:00Z')
+	startedAt: new Date('2025-01-01T11:00:00Z'),
+	pausedAt: null,
+	completedAt: new Date('2025-01-01T11:03:00Z'),
+	error: null,
+	userId: 'user_test',
+	workspaceId: 'ws_test'
 };
 
 const mockSessionC: PlanningSession = {
@@ -157,7 +185,7 @@ describe('Comparison Store', () => {
 		it('should add comparison to history', () => {
 			comparisonStore.createTwoWayComparison(mockSessionA, mockSessionB);
 			expect(comparisonStore.comparisonHistory.length).toBe(1);
-			expect(comparisonStore.comparisonHistory[0]).toBe(comparisonStore.currentComparison);
+			expect(comparisonStore.comparisonHistory[0]).toEqual(comparisonStore.currentComparison);
 		});
 
 		it('should add comparison at the beginning of history', () => {
