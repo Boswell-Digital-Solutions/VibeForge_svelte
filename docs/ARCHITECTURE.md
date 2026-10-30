@@ -62,14 +62,15 @@ VibeForge is built on three foundational principles:
 ├─────────────────────────────────────────────────────────────┤
 │  Navigation Sidebar  │  Top Bar (Theme, Settings, Help)    │
 ├─────────────────────────────────────────────────────────────┤
-│              State Management (Svelte Stores)              │
-│  - Theme Store      - Context Store    - Run Store         │
-│  - Prompt Store     - Preset Store     - Accessibility    │
+│        State Management (Svelte 5 runes, core/stores)       │
+│  - Workspace   - Context Blocks  - Prompt    - Models       │
+│  - Runs        - Tools           - Theme     - License      │
+│  - Patterns                                                 │
 ├─────────────────────────────────────────────────────────────┤
-│                  Supporting Pages                          │
-│  - Quick Run       - History        - Patterns             │
-│  - Presets         - Evaluations    - Workspaces           │
-│  - Settings        - Document Ingestion                    │
+│                    Supporting Pages                         │
+│  - Contexts    - Patterns   - History    - Evaluations      │
+│  - Analytics   - Workspaces - Dashboard  - Teams            │
+│  - Refactoring - Settings   - Login                         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -98,7 +99,7 @@ VibeForge is built on three foundational principles:
 ### Architecture Patterns
 
 - **File-based Routing** - SvelteKit's automatic page routing
-- **Store-based State** - Centralized state management with Svelte stores
+- **Store-based State** - Svelte 5 runes stores in `src/lib/core/stores`
 - **Component Composition** - Modular, reusable UI components
 - **Callback Props Pattern** - No event dispatchers, use callback props instead
 - **Server-Side Rendering** - SSR-ready with browser compatibility
@@ -119,47 +120,57 @@ vibeforge/
 │   ├── routes/                    # SvelteKit pages (file-based routing)
 │   │   ├── +layout.svelte         # Root layout with nav, theme, shells
 │   │   ├── +page.svelte           # Main workbench (3-column)
+│   │   ├── analytics/             # Cost and usage analytics
 │   │   ├── contexts/              # Context library browser
+│   │   ├── dashboard/             # Project dashboard
 │   │   ├── evals/                 # Model evaluation dashboard
 │   │   ├── history/               # Run history & replay
+│   │   ├── login/                 # Sign-in page
 │   │   ├── patterns/              # Prompt patterns library
-│   │   ├── presets/               # Saved configurations
-│   │   ├── quick-run/             # Quick experiment mode
+│   │   ├── refactoring/           # Automated refactoring
 │   │   ├── settings/              # User preferences
+│   │   ├── teams/                 # Team dashboard
 │   │   └── workspaces/            # Multi-workspace management
 │   │
 │   ├── lib/
-│   │   ├── components/            # Reusable UI components
-│   │   │   ├── ContextColumn.svelte
-│   │   │   ├── PromptColumn.svelte
-│   │   │   ├── OutputColumn.svelte
-│   │   │   ├── ForgeSideNav.svelte
-│   │   │   ├── ForgeTopBar.svelte
-│   │   │   ├── WorkbenchShell.svelte
-│   │   │   ├── research/          # Research & Assist panel
+│   │   ├── ui/layout/             # App shell
+│   │   │   ├── TopBar.svelte
+│   │   │   ├── LeftRailNav.svelte
+│   │   │   ├── StatusBar.svelte
+│   │   │   └── WorkbenchShell.svelte
+│   │   │
+│   │   ├── workbench/             # The 3-column workbench
+│   │   │   ├── context/           # ContextColumn
+│   │   │   ├── prompt/            # PromptColumn, editor, actions
+│   │   │   ├── output/            # OutputColumn, streaming
+│   │   │   ├── components/        # Wizard, QuickCreate, scaffolding
+│   │   │   ├── planning/          # Multi-model planning
+│   │   │   └── stores/            # Wizard and project state
+│   │   │
+│   │   ├── components/            # Feature UI
+│   │   │   ├── context/           # Context library panels
 │   │   │   ├── ingest/            # Document ingestion
-│   │   │   ├── context/           # Context management
 │   │   │   ├── history/           # History & replay
 │   │   │   ├── evaluations/       # Evaluation components
 │   │   │   ├── patterns/          # Pattern library
+│   │   │   ├── refactoring/       # Refactoring UI
 │   │   │   ├── settings/          # Settings panel
+│   │   │   ├── team/              # Team dashboard
 │   │   │   └── workspaces/        # Workspace components
 │   │   │
-│   │   ├── stores/                # Svelte state management
-│   │   │   ├── themeStore.ts      # Dark/light theme
-│   │   │   ├── promptStore.ts     # Active prompt state
-│   │   │   ├── contextStore.ts    # Context blocks library
-│   │   │   ├── runStore.ts        # Model run history
-│   │   │   ├── presetsStore.ts    # Saved configurations
-│   │   │   └── accessibilityStore.ts
+│   │   ├── core/                  # Application core
+│   │   │   ├── stores/            # Svelte 5 runes stores
+│   │   │   ├── api/               # NeuroForge / DataForge clients
+│   │   │   ├── types/             # Domain types
+│   │   │   ├── sync/              # Offline sync, IndexedDB
+│   │   │   ├── mcp/               # MCP tool manager
+│   │   │   └── execution/         # Run execution
 │   │   │
-│   │   ├── types/                 # TypeScript interfaces
-│   │   │   ├── context.ts
-│   │   │   ├── evaluation.ts
-│   │   │   ├── run.ts
-│   │   │   └── workspace.ts
-│   │   │
-│   │   └── index.ts               # Export central
+│   │   ├── stores/                # Feature-local stores
+│   │   ├── types/                 # Feature-local types
+│   │   ├── services/              # Service clients
+│   │   ├── refactoring/           # Refactoring engine
+│   │   └── data/                  # Architecture pattern templates
 │   │
 │   ├── app.css                    # Global styles & Tailwind
 │   ├── app.d.ts                   # Type definitions
@@ -180,7 +191,10 @@ vibeforge/
 
 ### Layout Components
 
-#### `ForgeSideNav.svelte` (Navigation Sidebar)
+The app shell lives in `src/lib/ui/layout/` and is exported from
+`$lib/ui/layout`.
+
+#### `LeftRailNav.svelte` (Navigation Rail)
 
 - Fixed left sidebar (224px / `w-56`)
 - Emoji-based navigation icons
@@ -188,7 +202,7 @@ vibeforge/
 - Links to all major features
 - Collapsible on mobile
 
-#### `ForgeTopBar.svelte` (Header Bar)
+#### `TopBar.svelte` (Header Bar)
 
 - Fixed top bar with application title
 - Theme toggle button
@@ -211,7 +225,7 @@ vibeforge/
 
 ### Column Components (Main Workbench)
 
-#### `ContextColumn.svelte` (Left Column)
+#### `ContextColumn.svelte` (Left Column) — `$lib/workbench/context/`
 
 - Displays available context blocks
 - Drag-to-reorder capability
@@ -219,7 +233,7 @@ vibeforge/
 - Quick preview on hover
 - Tag display
 
-#### `PromptColumn.svelte` (Center Column)
+#### `PromptColumn.svelte` (Center Column) — `$lib/workbench/prompt/`
 
 - Textarea for prompt composition
 - Active context chips (visual)
@@ -227,7 +241,7 @@ vibeforge/
 - Copy/paste helpers
 - Send button integration
 
-#### `OutputColumn.svelte` (Right Column)
+#### `OutputColumn.svelte` (Right Column) — `$lib/workbench/output/`
 
 - Display area for model responses
 - History list (scrollable)
@@ -239,7 +253,6 @@ vibeforge/
 
 #### Drawer Components
 
-- `ResearchAssistDrawer.svelte` - Research notes, snippets, suggestions
 - All drawers slide from sidebar or slide-out from edges
 
 #### Modal Components
@@ -259,86 +272,87 @@ vibeforge/
 
 ## State Management
 
-### Svelte Stores Architecture
+### Two store layers, two idioms
 
-All stores use Svelte's `writable` and derived stores. They follow a consistent pattern:
+State lives in two places, and they do not share a convention. Knowing which
+you are touching matters, because the consumption syntax differs.
+
+**`src/lib/core/stores/` — Svelte 5 runes.** The application's primary state.
+Each module holds a `$state` object, derives from it with `$derived`, and
+exports a single object whose getters expose that state and whose remaining
+properties are plain action functions. There is no `subscribe`, and **no `$`
+prefix at the call site**:
 
 ```typescript
-import { writable, derived } from "svelte/store";
+// src/lib/core/stores/theme.svelte.ts (abridged)
+const state = $state<{ current: Theme }>({ current: initialTheme });
+const isDark = $derived(state.current === 'dark');
 
-// Define store with initial value
-const storeState = writable<StateType>(initialValue);
+function toggle() { setTheme(state.current === 'dark' ? 'light' : 'dark'); }
 
-// Create public store for readonly access
-export const store = { subscribe: storeState.subscribe };
-
-// Export methods for mutations
-export function updateStore(newValue: StateType) {
-  storeState.set(newValue);
-}
+export const themeStore = {
+  get current() { return state.current; },
+  get isDark() { return isDark; },
+  toggle,
+  setTheme,
+};
 ```
 
-### Core Stores
+All of them are re-exported from `$lib/core/stores`:
 
-#### `themeStore.ts`
+| Store | Responsibility |
+|---|---|
+| `workspaceStore` | Workspaces, current selection, settings, sync status |
+| `contextBlocksStore` | Context block library, active selection, token totals |
+| `promptStore` | Prompt text, variables, templates, resolved prompt |
+| `modelsStore` | Available models, selection, cost estimation |
+| `runsStore` | Run history, execution lifecycle, cost and token totals |
+| `toolsStore` | MCP servers, tools, invocations |
+| `themeStore` | Dark/light theme, persisted to localStorage |
+| `licenseStore` | Tier, trial state, feature gating, quota |
+| `patternsStore` | Pattern library, suggestions, collections, stats |
+| `marketplaceStore` | Pattern marketplace state (no consumer at present) |
 
-- **Purpose:** Manage dark/light theme state
-- **State:** `Theme` ('dark' | 'light')
-- **Methods:** `toggleTheme()`, `setTheme(theme)`
-- **Persistence:** localStorage
+**`src/lib/stores/` — feature-local, mixed.** Five modules are classic
+`svelte/store` writables consumed with the `$` prefix (`estimation.ts`,
+`palette.ts`, `patternComparison.ts`, `presets.ts`, `versions.ts`); five are
+runes modules consumed without it (`projectOutcomes.svelte.ts`,
+`refactoringStore.svelte.ts`, `teamStore.svelte.ts`, `toast.svelte.ts`,
+`trendData.svelte.ts`). The `.svelte.ts` suffix is the reliable signal: it
+means runes.
 
-#### `promptStore.ts`
-
-- **Purpose:** Active prompt composition state
-- **State:** `PromptState` (text, activeContexts, tokenCount)
-- **Methods:** `updatePrompt()`, `addContext()`, `removeContext()`, `clearPrompt()`
-- **Derived:** `tokenCount` (estimated from character count)
-
-#### `contextStore.ts`
-
-- **Purpose:** Context blocks library
-- **State:** `ContextBlock[]`
-- **Methods:** `addContext()`, `updateContext()`, `deleteContext()`, `searchContexts()`
-- **Derived:** `contextCount`, `contextsByType`
-
-#### `runStore.ts`
-
-- **Purpose:** Model run history
-- **State:** `RunHistory[]`
-- **Methods:** `addRun()`, `getRun(id)`, `deleteRun()`, `clearHistory()`
-- **Derived:** `runCount`, `recentRuns`
-
-#### `presetsStore.ts`
-
-- **Purpose:** Saved workbench configurations
-- **State:** `Preset[]`
-- **Methods:** `savePreset()`, `loadPreset()`, `deletePreset()`, `pinPreset()`
-- **Derived:** `pinnedPresets`
-
-#### `accessibilityStore.ts`
-
-- **Purpose:** Accessibility preferences
-- **State:** `AccessibilitySettings` (fontSize, reducedMotion, highContrast)
-- **Methods:** `updateSettings()`
-- **Persistence:** localStorage
-
-### Store Usage Pattern
+### Store usage
 
 ```svelte
 <script lang="ts">
-  import { theme, toggleTheme } from '$lib/stores/themeStore';
-  import { promptStore, updatePrompt } from '$lib/stores/promptStore';
+  // runes store: read properties directly, call actions as methods
+  import { themeStore, promptStore } from '$lib/core/stores';
+  // classic writable: still needs the $ prefix
+  import { presets } from '$lib/stores/presets';
+
+  const dark = $derived(themeStore.isDark);
 </script>
 
-<!-- Reactive to store changes -->
-<div class={$theme === 'dark' ? 'bg-slate-900' : 'bg-white'}>
-  <textarea value={$promptStore.text} on:input={(e) => updatePrompt(e.target.value)} />
+<div class={dark ? 'bg-slate-900' : 'bg-white'}>
+  <textarea
+    value={promptStore.text}
+    oninput={(e) => promptStore.setText(e.currentTarget.value)}
+  />
+  <span>{promptStore.estimatedTokens} tokens</span>
+  <span>{$presets.length} presets</span>
 </div>
 
-<button on:click={toggleTheme}>Toggle Theme</button>
+<button onclick={themeStore.toggle}>Toggle Theme</button>
 ```
 
----
+### Persistence and sync
+
+`themeStore` persists to `localStorage` under `vibeforge-theme` and mirrors the
+value onto `document.documentElement` as `data-theme`. `workspaceStore`,
+`contextBlocksStore` and `runsStore` additionally expose sync state
+(`syncStatus`, `isOnline`, `hasPendingChanges`, `hasConflicts`) and actions
+(`forceSyncAll`, `syncPendingChanges`) backed by `src/lib/core/sync/`.
+
 
 ## Design System
 
@@ -387,11 +401,11 @@ All components check the `$theme` store and apply conditional Tailwind classes:
 
 ```svelte
 <script lang="ts">
-  import { theme } from '$lib/stores/themeStore';
+  import { themeStore } from '$lib/core/stores';
 </script>
 
 <div class={`px-4 py-3 ${
-  $theme === 'dark'
+  themeStore.current === 'dark'
     ? 'bg-slate-900 text-slate-100 border-slate-700'
     : 'bg-white text-slate-900 border-slate-200'
 }`}>
@@ -431,8 +445,9 @@ src/routes/
 
 ```
 +layout.svelte (root)
-├── ForgeSideNav
-├── ForgeTopBar
+├── TopBar
+├── LeftRailNav
+├── StatusBar
 └── <slot /> (page content)
     ├── +page.svelte (/)
     ├── contexts/+page.svelte
@@ -472,15 +487,15 @@ src/routes/
    ↓
 2. User selects context blocks from ContextColumn
    ↓
-3. promptStore updates with active contexts
+3. contextBlocksStore.toggleActive() marks the blocks to include
    ↓
 4. User clicks "Run" button
    ↓
-5. API call to backend (future: /api/run)
+5. runsStore.execute() calls the NeuroForge client in core/api
    ↓
 6. Response received
    ↓
-7. runStore.addRun() saves to history
+7. runsStore.addRun() saves to history
    ↓
 8. OutputColumn displays response
    ↓
@@ -496,13 +511,13 @@ src/routes/
    ↓
 3. Backend processes document (chunking, embedding)
    ↓
-4. Context blocks created and added to contextStore
+4. Context blocks created via contextBlocksStore.addBlock()
    ↓
 5. User can search/filter contexts in ContextColumn
    ↓
 6. User selects context for use in prompt
    ↓
-7. Context added to promptStore.activeContexts
+7. contextBlocksStore.toggleActive() adds it to activeBlocks
 ```
 
 ---
@@ -550,7 +565,7 @@ src/routes/
 
 ```svelte
 <script lang="ts">
-  import type { ContextBlock } from '$lib/types/context';
+  import type { ContextBlock } from '$lib/core/types';
 
   let {
     context,
@@ -569,21 +584,26 @@ src/routes/
 **Always use exported functions for mutations:**
 
 ```typescript
-// ❌ Don't mutate store directly
-$contextStore.push(newContext);
+// ❌ Don't reach into a store's state
+contextBlocksStore.blocks.push(newBlock);
 
-// ✅ Use exported function
-addContext(newContext);
+// ✅ Use the action the store exports
+contextBlocksStore.addBlock(newBlock);
 ```
 
 #### 2. Derived Stores
 
-**Use derived stores for computed values:**
+**Use `$derived` inside the store module, and expose it with a getter:**
 
 ```typescript
-export const tokenCount = derived(promptStore, ($prompt) => {
-  return Math.ceil($prompt.text.length / 4);
-});
+// in a *.svelte.ts store module
+const state = $state({ text: '' });
+const estimatedTokens = $derived(Math.ceil(state.text.length / 4));
+
+export const promptStore = {
+  get text() { return state.text; },
+  get estimatedTokens() { return estimatedTokens; },
+};
 ```
 
 #### 3. Store Persistence
@@ -591,15 +611,26 @@ export const tokenCount = derived(promptStore, ($prompt) => {
 **Persist important stores to localStorage:**
 
 ```typescript
-const stored = localStorage.getItem("theme");
-const initialTheme = stored ? JSON.parse(stored) : "dark";
+import { browser } from '$app/environment';
 
-const themeState = writable<Theme>(initialTheme);
+const STORAGE_KEY = 'vibeforge-theme';
+const initial = browser
+  ? (localStorage.getItem(STORAGE_KEY) as Theme) || 'dark'
+  : 'dark';
 
-themeState.subscribe((value) => {
-  localStorage.setItem("theme", JSON.stringify(value));
-});
+const state = $state<{ current: Theme }>({ current: initial });
+
+function setTheme(theme: Theme) {
+  state.current = theme;
+  if (browser) {
+    localStorage.setItem(STORAGE_KEY, theme);
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+}
 ```
+
+Guard every `localStorage` and `document` access with `browser`: routes are
+prerendered at build time, where neither exists.
 
 ---
 
@@ -619,7 +650,10 @@ themeState.subscribe((value) => {
 
 ### Bundle Size
 
-- Current bundle size: ~150KB (gzipped)
+- Production artifact: 85 files. All JavaScript chunks together gzip to
+  roughly 406 KB, stylesheets to roughly 27 KB; SvelteKit splits these by
+  route, so no single page loads all of it. Measure with `pnpm build`
+  rather than trusting this figure.
 - Tailwind CSS purged in production
 - No heavy dependencies (Svelte is lightweight)
 
