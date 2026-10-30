@@ -77,3 +77,25 @@
   `var(--color-*)` across five components.
 - Scope: closed. Both Tailwind errors are gone; the build now reaches the
   bundling issue recorded above.
+
+## 2026-10-30 - E2E auth setup cannot authenticate in CI (open)
+
+- What is wrong: all three E2E jobs fail in the `setup` project before any test
+  body runs, so `1 failed, 138 did not run`.
+- `tests/e2e/auth.setup.ts:31` submits the login form and waits for a redirect
+  to `/`; the app stays at `http://localhost:5173/login?` and the wait times
+  out after 10s. The suite's `webServer` starts `pnpm dev` only, so there is no
+  auth backend for the login to succeed against, and every browser project
+  declares `dependencies: ['setup']`.
+- Why it surfaced now: these jobs died at `pnpm install` for as long as the
+  pnpm 8 pin stood, so the suite had never run.
+- Scope: open. Making this green is an owner decision on how E2E should
+  authenticate — seed `vibeforge_jwt_token` into `storageState` directly, stand
+  up a stub auth endpoint, or intercept the login route with Playwright's
+  `page.route`. Each changes what the 139 tests actually prove, so none should
+  be picked silently.
+- Fixed alongside this, because it was a plain CI bug: each matrix job ran
+  `playwright install --with-deps <browser>`, but the `setup` project declares
+  no browser and so runs in chromium. The firefox and webkit jobs therefore
+  failed with `Executable doesn't exist at .../chromium_headless_shell-1194`
+  before even reaching the login. They now install chromium as well.

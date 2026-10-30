@@ -48,7 +48,7 @@ jobs:
           if [ "${{ inputs.browser }}" = "all" ]; then
             pnpm exec playwright install --with-deps
           else
-            pnpm exec playwright install --with-deps ${{ inputs.browser }}
+            pnpm exec playwright install --with-deps ${{ inputs.browser }} chromium
           fi
 
       - name: Run E2E tests (all browsers)
