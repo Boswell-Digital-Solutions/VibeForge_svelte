@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { refactoringStore } from '$lib/stores/refactoringStore.svelte';
-	import { RefactoringAutomation } from '$lib/refactoring';
 	import { balancedStandards, strictStandards, startupStandards, legacyStandards } from '$lib/refactoring/standards/presets';
 
 	let refactoringState = $derived(refactoringStore.state);

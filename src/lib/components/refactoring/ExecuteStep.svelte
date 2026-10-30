@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { refactoringStore } from '$lib/stores/refactoringStore.svelte';
-	import { RefactoringAutomation } from '$lib/refactoring';
 	import type { RefactoringProject, PhaseExecution } from '$lib/refactoring/types/execution';
 
 	let refactoringState = $derived(refactoringStore.state);

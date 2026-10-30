@@ -43,25 +43,32 @@
 - Scope: open. Whether a large quality gap should override cost and speed is
   an owner decision, not a test fix.
 
-## 2026-10-30 - Build pulls a Node-only module into the browser bundle (open)
+## 2026-10-30 - Build pulled a Node-only module into the browser bundle (closed)
 
-- What is wrong: `pnpm build` fails with `"basename" is not exported by
+- What was wrong: `pnpm build` failed with `"basename" is not exported by
   "__vite-browser-external"` from
-  `src/lib/refactoring/analyzer/FileSystemScanner.ts`, which imports
+  `src/lib/refactoring/analyzer/FileSystemScanner.ts`, which imported
   `fs/promises` and `path`.
 - Chain: `AnalyzeStep.svelte`, `PlanStep.svelte`, `ExecuteStep.svelte` and
-  `CompleteStep.svelte` value-import `RefactoringAutomation` from
+  `CompleteStep.svelte` value-imported `RefactoringAutomation` from
   `$lib/refactoring`. That barrel re-exports `FileSystemScanner`, so a
-  filesystem module lands in the client graph. The type-only imports of
-  `$lib/refactoring/types/*` are erased and are not part of this.
-- Why it surfaced now: the Build job `needs` the code jobs, so it was skipped
-  for as long as they failed. With lint, types and unit tests green it runs,
-  and this is the first error it reaches.
-- Scope: open. The fix is a module-boundary decision for the owner: either the
-  refactoring analyzer moves behind Tauri IPC and the components call that, or
-  the barrel stops re-exporting the filesystem-backed classes. Polyfilling
-  `path` would only hide that `readdir`/`readFile` cannot run in a browser.
-- Not blocking lint, type check or the unit suite, which are green.
+  filesystem module landed in the client graph. The type-only imports of
+  `$lib/refactoring/types/*` are erased and were not part of this.
+- Why it surfaced then: the Build job `needs` the code jobs, so it was skipped
+  for as long as they failed at install. With lint, types and unit tests green
+  it ran, and this was the first error it reached.
+- Fix: the four `path` functions the analyzers use are pure string operations,
+  so they moved to `src/lib/refactoring/analyzer/posixPath.ts`, pinned against
+  `node:path/posix` by `__tests__/posixPath.test.ts`. The filesystem calls
+  (`readdir`, `stat`, `readFile`) resolve through `analyzerFs()` in
+  `src/lib/refactoring/analyzer/nodeFs.ts`, which imports `node:fs/promises`
+  from a variable specifier marked `@vite-ignore` so the bundler leaves it
+  alone. `PlanStep`, `ExecuteStep` and `CompleteStep` imported
+  `RefactoringAutomation` without using it; those three imports are gone.
+- What the fix does not decide: a webview still cannot scan a codebase.
+  `analyzerFs()` now says so, with a message naming the reason, instead of
+  failing the build. Whether codebase analysis belongs behind Tauri IPC so the
+  components can call it for real is still an owner decision.
 
 ## 2026-10-30 - Tailwind v4 migration was incomplete in component styles (closed)
 

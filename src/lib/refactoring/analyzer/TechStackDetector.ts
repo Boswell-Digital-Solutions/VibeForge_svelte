@@ -4,8 +4,8 @@
  * Detects framework, language, and dependencies from codebase analysis.
  */
 
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { analyzerFs } from './nodeFs';
+import { join } from './posixPath';
 import type { FileInfo, Framework, TechStack } from '../types/analysis';
 
 /**
@@ -39,7 +39,8 @@ export class TechStackDetector {
 	private async detectFramework(rootPath: string, files: FileInfo[]): Promise<Framework> {
 		try {
 			const packageJsonPath = join(rootPath, 'package.json');
-			const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
+			const fs = await analyzerFs();
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
 			const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
 
 			// Check for SvelteKit
@@ -98,7 +99,8 @@ export class TechStackDetector {
 	): Promise<import('../types/analysis').StateManagement> {
 		try {
 			const packageJsonPath = join(rootPath, 'package.json');
-			const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
+			const fs = await analyzerFs();
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
 			const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
 
 			// Check for common state management libraries
@@ -154,7 +156,8 @@ export class TechStackDetector {
 	): Promise<{ name: string; version: string; type: 'dependency' | 'devDependency' }[]> {
 		try {
 			const packageJsonPath = join(rootPath, 'package.json');
-			const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
+			const fs = await analyzerFs();
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
 
 			const dependencies: { name: string; version: string; type: 'dependency' | 'devDependency' }[] =
 				[];
