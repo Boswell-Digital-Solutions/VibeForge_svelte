@@ -170,6 +170,24 @@
   real-authentication lane now works. Do not resolve it by skipping tests to
   reach green.
 
+## 2026-10-30 - The documented CI path-filter rule is wrong for pull requests (closed)
+
+- What was wrong: `doc/system/50-operations.md` stated that a change touching
+  only documentation runs the Documentation CI and no code CI. That is true for
+  a push to `main`, `master` or `develop`. It is false for a pull request.
+- `ci.yml` lists `branches: [main, master, develop]` on both triggers. A push to
+  a feature branch therefore never starts the code CI. The `pull_request`
+  trigger starts it, and GitHub applies the `paths` filter to the whole diff
+  against the base branch rather than to the pushed commit.
+- Effect: a pull request that changes one source file runs the full code CI on
+  every later push, including a documentation-only push. Measured on PR #13:
+  `6df1c35` changed only `docs/KNOWN_ISSUES.md` and ran Lint, Unit Tests, Build
+  and all three E2E jobs.
+- Cost while the E2E lane cannot finish: every push to a code pull request
+  spends three cancelled 30-minute E2E jobs, about 1.5 job-hours, whatever the
+  push contains.
+- Fix: the part is corrected. The rule now states both cases.
+
 ## 2026-10-30 - Service endpoint configuration is contradictory (open)
 
 - What is wrong: the application cannot be pointed at one NeuroForge with one

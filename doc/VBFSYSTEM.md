@@ -226,11 +226,22 @@ Deployment, observability, incident response, and bounded repair.
 
 ## Which CI runs for which change
 
-The rule: a change that touches only documentation runs the Documentation CI and no code CI.
-A change that touches any other file runs the code CI.
-A change that touches both runs both.
-The code CI runs only when code changes.
+The rule holds for a push to `main`, `master` or `develop`.
+A push that touches only documentation runs the Documentation CI and no code CI.
+A push that touches any other file runs the code CI.
+A push that touches both runs both.
 The nightly E2E workflow is schedule-only and is not part of this rule.
+
+The rule does not hold for a pull request.
+The `push` trigger lists `branches: [main, master, develop]`, so a push to a
+feature branch does not start the code CI at all.
+A pull request starts it instead, and GitHub applies the `paths` filter to the
+whole diff against the base branch, not to the pushed commit.
+A pull request that changes one source file therefore runs the code CI on every
+later push, including a push that touches only documentation.
+Measured on PR #13: commit `6df1c35` changed only `docs/KNOWN_ISSUES.md` and ran
+the full code CI, because the pull request already carried source changes.
+Do not expect a documentation commit on a code pull request to skip the code CI.
 
 The `CI` workflow (`.github/workflows/ci.yml`) uses a workflow-level `paths` filter on `push` and `pull_request`.
 The filter includes `**` and then excludes `docs/**`, `doc/**` and `**/*.md`.
