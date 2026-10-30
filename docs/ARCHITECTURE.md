@@ -136,16 +136,13 @@ vibeforge/
 │   │   │   ├── ForgeSideNav.svelte
 │   │   │   ├── ForgeTopBar.svelte
 │   │   │   ├── WorkbenchShell.svelte
-│   │   │   ├── StatusBar.svelte
 │   │   │   ├── research/          # Research & Assist panel
 │   │   │   ├── ingest/            # Document ingestion
 │   │   │   ├── context/           # Context management
 │   │   │   ├── history/           # History & replay
 │   │   │   ├── evaluations/       # Evaluation components
 │   │   │   ├── patterns/          # Pattern library
-│   │   │   ├── presets/           # Preset management
 │   │   │   ├── settings/          # Settings panel
-│   │   │   ├── quickrun/          # Quick run
 │   │   │   └── workspaces/        # Workspace components
 │   │   │
 │   │   ├── stores/                # Svelte state management
@@ -243,13 +240,11 @@ vibeforge/
 #### Drawer Components
 
 - `ResearchAssistDrawer.svelte` - Research notes, snippets, suggestions
-- `PresetsDrawer.svelte` - Quick preset access
 - All drawers slide from sidebar or slide-out from edges
 
 #### Modal Components
 
 - `UploadIngestModal.svelte` - File upload interface
-- `SavePresetModal.svelte` - Save prompt configuration
 - Form modals for creating contexts, workspaces, evaluations
 
 #### List Components
