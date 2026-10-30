@@ -535,6 +535,49 @@ sat there widening the gate in silence.
 
 The list is currently empty, which is the goal.
 
+## Finding unreachable code
+
+`pnpm find:unreachable` builds an import graph and groups every source file
+under `src/lib` by what can reach it: routes, tests only, `src/archive` only,
+or nothing. `--deletable` narrows the output to the files that can be removed
+today.
+
+It follows type-only, dynamic and re-export specifiers, which a grep cannot.
+Barrels re-export, so a component can be reached by a live route through two
+hops of `index.ts` and never appear in a grep near a route.
+
+### Three traps it exists to clear
+
+**Names are not identities.** The live `StatusBar` is
+`src/lib/ui/layout/StatusBar.svelte`; another file of that name sat under
+`src/lib/components/`. A name-based search reports the live file and keeps the
+dead one, or the reverse. The repository also held two `vibeforgeClient.ts` and
+two `types/learning.ts`, and `components/dev/` still mirrors filenames that
+were deleted from `components/dev-environment/`.
+
+**Unreachable is not dead.** `src/lib/core/neuronforge/` is reachable only
+from its own tests, on purpose: the local inference lane ships its contract and
+transport ahead of the UI that will consume them. A sweep of everything
+unreachable would delete it. Read the buckets as questions, not as a delete
+list — which is why the tool labels that bucket.
+
+**Not every entry point is an import.** `src/tests/setup.ts` is named in
+`vitest.config.ts` and imported by nothing, so a pure import graph calls it
+unreachable. The tool scans the configuration files for paths and treats what
+they name as roots.
+
+### Safe to delete is narrower than unreachable
+
+`tsconfig.json` excludes `**/archive/**` and nothing else, so `svelte-check`
+reads every other file under `src/` whether a route reaches it or not.
+Removing a file that an unreachable-but-still-checked file imports therefore
+breaks `pnpm run check`.
+
+That is not theoretical. Deleting `src/lib/api/runtimeClient.ts` broke
+`src/lib/components/dev-environment/ToolchainsConfig.svelte`, a file nothing
+imports at all. `--deletable` applies both tests: nothing live reaches the
+file, and nothing still type-checked imports it.
+
 ## Which CI runs for which change
 
 The rule holds for a push to `main`, `master` or `develop`.

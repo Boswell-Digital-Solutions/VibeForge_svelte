@@ -250,6 +250,16 @@
 - Effect: dead code that still type-checks and still appears in search
   results, so a reader may take it for a live surface. Not shipped — Vite
   bundles only what a route reaches — so there is no artifact or runtime cost.
+- Reproducible since: `pnpm find:unreachable` performs the same analysis on
+  demand, so the count does not have to be trusted or redone by hand. Against
+  this commit it reports 108 unreachable files under `src/lib` alone, 58 of
+  them removable today — the rest are held by another file in the same dead
+  cluster, which `svelte-check` still reads. The figure above was counted
+  across `src/` by hand during the sweep; prefer the tool's, which states its
+  scope and can be re-run.
+- The tool encodes all three traps named above, including the configuration
+  case: it scans `vitest.config.ts` and its siblings for paths and treats what
+  they name as roots, so `src/tests/setup.ts` is not reported as dead.
 - Scope: open, and deliberately not folded into the sweep above, which was
   scoped to what the route retirement orphaned.
 
