@@ -1,5 +1,25 @@
 # Known Issues
 
+## 2026-10-30 - No workflow builds or tests Rust (open)
+
+- What is wrong: `src-tauri/` carries seven Tauri commands, an authority
+  module, a governance model, a vault and a repo-truth module. No workflow in
+  `.github/workflows/` runs `cargo check`, `cargo test`, `cargo fmt` or
+  `cargo clippy`. The Rust side of this application is entirely unverified by
+  CI.
+- It also cannot be verified in a plain container: `cargo check` resolves
+  crates but fails on the missing Tauri system libraries (`gdk-3.0`, and the
+  webkit and gtk development packages).
+- Consequence for the local inference lane: the desktop bridge holds a
+  capability that must never reach the webview. Writing that component while
+  neither CI nor a contributor's container can compile it would ship an
+  unverified security boundary, so the first slice establishes the contract,
+  the readiness state machine, the refusal taxonomy and the permission rules in
+  TypeScript, where they are tested, and leaves the transport to a slice that
+  can add Rust CI alongside it.
+- Scope: open. A Rust job needs the system libraries installed in the runner,
+  which is a CI change rather than a code change.
+
 ## 2026-10-02 - `verify:repo-context` fails on a clean checkout (open)
 
 - What is wrong: `bun run verify:repo-context` fails with `README title is Install dependencies; expected VibeForge`.
