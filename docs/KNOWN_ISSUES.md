@@ -20,11 +20,46 @@
   so it uploads nothing and the job stays green.
 - Fix: decide how the application ships. `@sveltejs/adapter-static` with
   `pages`/`assets` set to `build` is the usual choice for a Tauri frontend and
-  would satisfy `frontendDist`, but it imposes prerendering on every route and
-  is a decision about the product rather than a repair. Pointing
-  `frontendDist` at `.svelte-kit/output/client` instead would be the smaller
-  change and would ship an unadapted bundle.
-- Scope: open, and an operator decision. Not a code fix to make quietly.
+  satisfies `frontendDist`. Pointing `frontendDist` at
+  `.svelte-kit/output/client` instead is a smaller change but ships an
+  unadapted bundle whose layout is not a stable contract.
+- Measured, not estimated. An earlier revision of this entry said
+  adapter-static "imposes prerendering on every route" as though that were a
+  cost. It was measured on 2026-10-30 and the cost is nil:
+  - `src/routes/` holds no `+page.server.ts`, no `+layout.server.ts`, no
+    `+server.ts`, no `+page.ts`, no form action, and no dynamic parameter.
+    Nothing in `src/` exports `prerender`, `ssr` or `csr`. With no dynamic
+    segment, SvelteKit prerenders every route without crawling, so
+    `handleUnseenRoutes` never arises.
+  - A trial build with `adapter({ pages: 'build', assets: 'build' })` and
+    `export const prerender = true` succeeded first time. It wrote all 16
+    routes with real rendered markup, 5 KB to 44 KB each, 99 files and 5.2 MB.
+    No route needed an opt-out.
+  - `cargo build --bin vibeforge` then succeeded against that output, with
+    `neuronforge_lane_state` registered.
+  - Behaviour is unchanged. Serving `build/` over a resolver that maps an
+    extensionless path to `.html`, as Tauri's asset protocol does, gives every
+    route HTTP 200 and the same count of interactive elements as `pnpm dev`
+    does for that route: 41 on `/settings`, 31 on `/history`, 20 on
+    `/analytics`, 17 on `/teams`, 14 on `/refactoring`, 1 on `/login`. Both
+    produce the same console errors, and all of them are backend absence
+    (license validation and the `ws://localhost:8001/ws` socket), present
+    identically under `pnpm dev`.
+  - The E2E lanes are unaffected: `playwright.config.ts` starts `pnpm dev`,
+    not the built output.
+  - Adapter-static would also make the Build job's artifact upload real. It
+    currently uploads nothing.
+- Two consequences worth stating, neither a blocker:
+  - `src/routes/_archive/` holds four pages that are live routes, not
+    archived. They appear in `.svelte-kit/output` today and prerender to
+    `build/_archive/*.html`. Prerendering does not create that; it makes it
+    visible.
+  - Prerendered markup is build-time state, so a list that is empty at build
+    time renders empty until hydration replaces it. It also means every
+    page's markup ships statically, which bears on the commented-out route
+    guard recorded below: static HTML cannot be auth-gated.
+- Scope: open, and an operator decision about how the product ships. The
+  measurement above is evidence for that decision, not the decision.
 
 ## 2026-10-30 - Rust formatting cannot be checked crate-wide (open)
 
