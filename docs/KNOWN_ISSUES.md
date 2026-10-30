@@ -130,29 +130,94 @@
   the DataForge and NeuroForge MCP servers. CI runs `pnpm dev` only, so every
   one is refused and the specs wait for content that never renders.
   Authentication is not involved.
-- Measured locally on chromium, as a sample rather than a full run: 9 passed
-  and 49 failed over the first 58 tests. The passing ones are the auth specs,
-  two settings cases in `cortex-planning.spec.ts`, `debug-shortcuts.spec.ts`,
-  and, aptly, `phase-2.7-dev-environment.spec.ts` "should handle missing
-  backend gracefully".
-- Cost: each failure also burns its two CI retries, so the three E2E jobs now
-  run for hours instead of failing fast in two minutes.
+- Measured locally on chromium, full run, two workers, no retries: 54 passed,
+  88 failed, 1 skipped of 143, in 21.6 minutes. Six files hold 85 of the 88
+  failures.
+
+| Spec file | pass | fail | Blocked on |
+|---|---|---|---|
+| `quick-create` | 15 | 0 | — |
+| `phase-4.1-team-dashboard` | 14 | 2 | — |
+| `skip-wizard-preference` | 11 | 1 | — |
+| `auth-negative` | 4 | 0 | — |
+| `debug-shortcuts` | 1 | 0 | — |
+| `phase-2.7-wizard-runtime` | 0 | 22 | Host language-runtime detection |
+| `phase-2.7-dev-environment` | 1 | 21 | Host language-runtime detection |
+| `phase-4.1-wizard-team-insights` | 0 | 15 | Team and insights data |
+| `cortex-planning` | 2 | 11 | License validation on `:8002` |
+| `wizard-modal` | 5 | 11 | Mixed |
+| `workbench-golden-path` | 0 | 5 | Full stack |
+
+- The 43 failures in the two `phase-2.7-*` files need host language-runtime
+  detection, which asks whether Node or Python is installed. That is a Tauri
+  host capability. No service supplies it, so those specs cannot pass in a
+  browser whatever is running. "Runtime" there does not mean an inference
+  runtime.
+- The three E2E jobs cannot finish. `.github/workflows/ci.yml` sets
+  `timeout-minutes: 30` on the E2E job, and all three were cancelled at that
+  cap on `7b93eed`. The local run took 21.6 minutes with two workers and no
+  retries. CI uses one worker and two retries, so the same suite needs roughly
+  two hours. The lane is therefore not slow; it cannot report a result at all.
+- Before the login blocker was fixed the job failed in about two minutes,
+  because 138 specs never ran. The fix removed that fast failure. Both states
+  are red, but the shape changed, and the 30-minute cap is now the binding
+  constraint.
+- Do not raise `timeout-minutes` to absorb this. That hides the lane problem
+  and spends more CI to reach the same red.
 - Scope: open, and it is an owner decision, not a test fix. The options are to
   mock each service boundary, to run the stack in CI, or to classify these
   specs into their own project with their own gate, the way the
   real-authentication lane now works. Do not resolve it by skipping tests to
   reach green.
 
-## 2026-10-30 - `.env.example` names a variable the code does not read (open)
+## 2026-10-30 - Service endpoint configuration is contradictory (open)
 
-- What is wrong: `.env.example` declares
-  `VITE_NEUROFORGE_API_BASE=http://localhost:8002/api/v1`, but
-  `src/lib/auth.ts` reads `VITE_NEUROFORGE_URL` and defaults to
-  `http://localhost:8002`.
-- Effect: anyone who configures the documented variable changes nothing, and
-  the path segment differs as well.
-- Scope: open. Renaming either side is a configuration change, so it needs an
-  owner decision on which name is canonical.
+- What is wrong: the application cannot be pointed at one NeuroForge with one
+  setting. Three variable names are read, and the same name carries different
+  defaults in different modules.
+
+| Variable | Default | Read by |
+|---|---|---|
+| `VITE_NEUROFORGE_URL` | `:8000` | `core/api/` (config, prompts, languages, stackProfiles, neuroforgeClient) |
+| `VITE_NEUROFORGE_URL` | `:8002` | `lib/auth.ts` |
+| `VITE_NEUROFORGE_API_URL` | `:8000` | `services/insights-client.ts` |
+| `VITE_NEUROFORGE_API_URL` | `:8001` | `stores/teamStore.svelte.ts` |
+| `VITE_NEUROFORGE_API_BASE` | `:8000/api/v1` | `api/neuroforge.ts` |
+| `VITE_NEUROFORGE_API_BASE` | `:8002/api/v1` | `api/research.ts` |
+
+- `.env.example` declares a fourth combination,
+  `VITE_NEUROFORGE_API_BASE=http://localhost:8002/api/v1`.
+- DataForge is tangled the same way. `teamStore.svelte.ts` puts DataForge on
+  `:8000` and NeuroForge on `:8001`, which is the reverse of every other
+  module. `api/dataforge.ts` defaults to `https://localhost:8001/api/v1`, and
+  TLS cannot reach a local HTTP service.
+- `core/stores/license.svelte.ts` hardcodes `http://localhost:8002/license`
+  with no variable at all.
+- Per the ecosystem port registry NeuroForge is 8000, DataForge is 8001 and
+  8002 belongs to Rake. Confirm this against the registry before renumbering;
+  the reading comes from the sibling repositories' own documents.
+- Effect on the release gate: `.github/workflows/release-gate.yml` sets
+  `VITE_NEUROFORGE_URL`, which is what `auth.ts` reads, so the gate does cover
+  the authentication path. It does not cover insights or research, because
+  those modules read other names. Consolidate the configuration before
+  widening the gate, or it will report testing one endpoint while other
+  modules reach their own defaults.
+- Scope: open. This is a configuration change and needs an owner decision on
+  which name is canonical.
+
+## 2026-10-30 - No local inference lane exists in the application (open)
+
+- What is wrong: `src/` holds no reference to NeuronForge. Every
+  inference-shaped client points at a NeuroForge endpoint.
+- Effect: there is no local lane to run against, and no local lane to test.
+  The product doctrine in this repository states that local works without
+  cloud, and that cloud is an opt-in escalation lane and never required for
+  trust. The code does not yet express that split.
+- This also bounds the E2E lane question above. The service-dependent specs
+  cannot run against a local inference service, because the application has no
+  setting that names one.
+- Scope: open. Adding a local lane is an architecture decision, not a test
+  fix.
 
 ## 2026-10-30 - A login response with no token fails silently (open)
 
