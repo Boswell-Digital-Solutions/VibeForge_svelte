@@ -11,8 +11,9 @@ import type {
   ConnectionStatus,
 } from '$lib/types/streaming';
 import { parseStreamEvent } from '$lib/types/streaming';
+import { NEUROFORGE_WS_URL } from '$lib/core/api/endpoints';
 
-const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000';
+const WS_BASE_URL = NEUROFORGE_WS_URL;
 
 export class WebSocketClient {
   private ws: WebSocket | null = null;

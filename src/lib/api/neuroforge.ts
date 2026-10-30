@@ -17,13 +17,14 @@ import type {
   NeuroForgeApiError,
 } from "$lib/types/neuroforge";
 import { getAuthHeader } from "$lib/auth";
+import { NEUROFORGE_API_V1 } from "$lib/core/api/endpoints";
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
 const API_BASE =
-  import.meta.env.VITE_NEUROFORGE_API_BASE || "http://localhost:8000/api/v1";
+  NEUROFORGE_API_V1;
 
 // ============================================================================
 // Utility Functions

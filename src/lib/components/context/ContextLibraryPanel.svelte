@@ -155,7 +155,7 @@ function getKindColor(kind: string): string {
         <span class="text-sm text-gray-500">Loading...</span>
       {:else}
         <span class="text-sm text-gray-500">
-          ({filteredBlocks.length} blocks, {formatTokens(filteredBlocks.reduce((sum, b) => sum + b.content.length, 0))} tokens)
+          ({filteredBlocks.length} blocks, {filteredBlocks.reduce((sum, b) => sum + formatTokens(b.content), 0)} tokens)
         </span>
       {/if}
     </div>

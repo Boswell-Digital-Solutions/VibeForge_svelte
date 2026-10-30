@@ -24,7 +24,7 @@ let { runId, detailed = false, showTooltip = true }: Props = $props();
 
 // Get sync metadata for this run
 const syncMetadata = $derived(runsStore.runs.find(r => r.id === runId));
-const metadata = $derived($state.snapshot(runsStore).syncMetadata?.get(runId));
+const metadata = $derived(runsStore.getSyncMetadata(runId));
 
 // Helper to get status color
 function getStatusColor(status?: string): string {

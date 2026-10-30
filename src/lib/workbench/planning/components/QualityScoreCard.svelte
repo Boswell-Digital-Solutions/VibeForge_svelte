@@ -156,6 +156,8 @@ function formatCriterion(criterion: string): string {
 </div>
 
 <style>
+	@reference "tailwindcss";
+
 	.quality-score-card {
 		@apply min-h-0;
 	}

@@ -505,6 +505,8 @@
 </div>
 
 <style>
+	@reference "tailwindcss";
+
   .toolchains-config {
     @apply p-6;
   }

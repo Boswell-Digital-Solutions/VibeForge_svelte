@@ -117,10 +117,10 @@ no description yet
       const result = await llmClient.testConfig(config);
 
       testResult = {
-        success: true,
-        message: result.configured
+        success: result.success,
+        message: result.success
           ? "✅ Connection successful!"
-          : "⚠️ Provider available but not fully configured",
+          : `⚠️ ${result.error ?? "Provider available but not fully configured"}`,
       };
     } catch (error) {
       testResult = {
@@ -144,8 +144,8 @@ no description yet
 
     try {
       const config = buildConfig();
+      // initialize() persists the config itself.
       await llmClient.initialize(config);
-      llmClient.saveConfig(config);
 
       saveResult = "Configuration saved successfully!";
       setTimeout(() => {

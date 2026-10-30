@@ -189,6 +189,57 @@ Data model, persistence, and schema migration posture.
 
 External integrations, upstream services, and wire contracts.
 
+## Service endpoints
+
+One variable configures one service. `src/lib/core/api/endpoints.ts` is the only
+place that reads an endpoint variable. Every other module imports a constant
+from it.
+
+| Variable | Default | Service | Shape |
+|---|---|---|---|
+| `VITE_NEUROFORGE_URL` | `http://localhost:8000` | NeuroForge | Origin |
+| `VITE_DATAFORGE_URL` | `http://localhost:8001` | DataForge | Origin |
+| `VITE_LICENSE_API_URL` | `http://localhost:8002/license` | License validation | Base path |
+
+The two origins take a scheme, a host and a port, and no path.
+
+`VITE_LICENSE_API_URL` is a base-path URL, not an origin. It includes its
+`/license` segment, and a caller appends to it. It is shaped differently
+because no service owns the route, so there is no origin to name.
+
+Never add a trailing slash. The module strips one and derives the rest:
+
+| Constant | Derived from |
+|---|---|
+| `NEUROFORGE_API_V1` | `NEUROFORGE_URL` plus `/api/v1` |
+| `DATAFORGE_API_V1` | `DATAFORGE_URL` plus `/api/v1` |
+| `NEUROFORGE_WS_URL` | `NEUROFORGE_URL` with the `ws` scheme |
+| `DATAFORGE_WS_URL` | `DATAFORGE_URL` with the `ws` scheme, plus `/ws` |
+
+A websocket URL is derived rather than configured, so the host and the port
+cannot differ between the two protocols.
+
+The MCP client URLs are also derived, from `NEUROFORGE_URL` plus `/mcp` and
+`DATAFORGE_URL` plus `/mcp`. Neither service implements that route today, so
+both connections fail. See `docs/KNOWN_ISSUES.md`.
+
+Defaults follow the port map in the Forge port registry, which NeuroForge's own
+`.env.example` states: 8000 for NeuroForge, 8001 for DataForge, 8002 for Rake.
+NeuroForge serves `/api/v1/auth/login/json`, so authentication uses
+`NEUROFORGE_URL`.
+
+### What stays open
+
+The license default targets port 8002, which the registry assigns to Rake. No
+service in the ecosystem implements `/license/validate`. The value is preserved
+rather than corrected, because which service owns license validation is an open
+question. See `docs/KNOWN_ISSUES.md`.
+
+No DataForge route answers `/ws` today, so a sync connection is refused, and
+neither service answers `/mcp`.
+
+The application holds no reference to NeuronForge, so there is no local
+inference lane to configure. See `docs/KNOWN_ISSUES.md`.
 ## Local inference lane
 
 NeuronForge Local holds inference responsibility. VibeForge holds developer
@@ -287,11 +338,22 @@ Deployment, observability, incident response, and bounded repair.
 
 ## Which CI runs for which change
 
-The rule: a change that touches only documentation runs the Documentation CI and no code CI.
-A change that touches any other file runs the code CI.
-A change that touches both runs both.
-The code CI runs only when code changes.
-The nightly E2E workflow is schedule-only and is not part of this rule.
+The rule holds for a push to `main`, `master` or `develop`.
+A push that touches only documentation runs the Documentation CI and no code CI.
+A push that touches any other file runs the code CI.
+A push that touches both runs both.
+The full browser regression workflow runs by dispatch or by call, and is not part of this rule.
+
+The rule does not hold for a pull request.
+The `push` trigger lists `branches: [main, master, develop]`, so a push to a
+feature branch does not start the code CI at all.
+A pull request starts it instead, and GitHub applies the `paths` filter to the
+whole diff against the base branch, not to the pushed commit.
+A pull request that changes one source file therefore runs the code CI on every
+later push, including a push that touches only documentation.
+Measured on PR #13: commit `6df1c35` changed only `docs/KNOWN_ISSUES.md` and ran
+the full code CI, because the pull request already carried source changes.
+Do not expect a documentation commit on a code pull request to skip the code CI.
 
 The `CI` workflow (`.github/workflows/ci.yml`) uses a workflow-level `paths` filter on `push` and `pull_request`.
 The filter includes `**` and then excludes `docs/**`, `doc/**` and `**/*.md`.
@@ -312,6 +374,131 @@ This repo has no secret scanner workflow today.
 
 Do not add a required status check on a path-filtered workflow.
 When the filter skips the workflow, the required check stays pending and blocks the merge.
+
+## E2E lanes
+
+There are three E2E lanes. They make different claims and run at different
+times.
+
+| Lane | Workflow | Trigger | Blocking |
+|---|---|---|---|
+| PR smoke | `ci.yml`, job `e2e-smoke` | Every code pull request | Yes |
+| Full browser regression | `e2e-full.yml` | Dispatch, or a workflow call | No, see below |
+| Real authentication | `release-gate.yml` | A `v*` tag, dispatch, or a call | Yes |
+
+### PR smoke
+
+Chromium only, hermetic, and bounded. It runs the specs tagged `@smoke`:
+eleven critical-path tests covering login failure, project creation, the
+wizard opening and closing, and preference persistence. It finishes in about
+one minute, and the job is capped at 15.
+
+To add a test to this lane, tag it `@smoke`. Keep the lane bounded. It exists
+to catch a broken critical path quickly, not to cover the product.
+
+### Full browser regression
+
+Every spec, on Chromium, Firefox and WebKit, in four shards per browser, with
+merged reports. It is capped at 60 minutes.
+
+It is not in ordinary pull-request CI, and it has no schedule, under the rule
+that there are no scheduled full runs.
+
+This lane fails today. Most specs need a local service stack that CI does not
+run. The reports are the point: they state which specs still depend on a
+service. It is therefore not a blocking job in the release gate, because a gate
+that cannot pass gates nothing. Run it at release qualification and read the
+reports.
+
+### Why the lanes are split
+
+Before the split, `ci.yml` ran all 143 specs on three browsers on every push,
+capped at 30 minutes. One worker and two retries need about two hours, so all
+three jobs were cancelled at the cap and reported nothing. The cap was not the
+defect; the lane was. Raising it would have spent four times the CI to reach
+the same red.
+
+
+### How the hermetic session works
+
+The `setup` project answers the login request in the browser.
+`tests/e2e/support/syntheticSession.ts` holds the synthetic session.
+It mints the token at run time, because `initAuth()` logs out an expired token.
+The chromium, firefox and webkit projects then start from a signed-in page.
+
+This lane does not authenticate.
+No request leaves the browser.
+A green run says nothing about NeuroForge login.
+Do not report it as authentication coverage.
+
+`tests/e2e/auth-negative.spec.ts` covers the failure paths in a real browser.
+It covers a rejected credential, an unparseable success body, a success body
+with no token, and an unreachable endpoint.
+Each case asserts that no session starts.
+
+The application has no bypass.
+`src/lib/auth.ts` always performs a real request.
+All interception lives under `tests/`.
+
+### How the real-authentication lane works
+
+`tests/e2e-real-auth/real-auth.spec.ts` is the only spec that authenticates.
+It intercepts nothing.
+It asserts that the request reached the configured host.
+It asserts that the token is not a synthetic one.
+
+The lane skips when the settings are absent, so pull-request CI stays hermetic.
+`E2E_REAL_AUTH_REQUIRED=true` turns an absent or inconsistent setting into a
+failure instead.
+
+| Setting | Purpose |
+|---|---|
+| `E2E_REAL_AUTH_URL` | The test NeuroForge endpoint |
+| `E2E_REAL_AUTH_USERNAME` | The isolated test account |
+| `E2E_REAL_AUTH_PASSWORD` | That account's password |
+| `E2E_REAL_AUTH_ACCOUNT_CLASS` | Must be `isolated-test`, or the spec refuses to run |
+| `E2E_REAL_AUTH_REQUIRED` | `true` makes the lane blocking |
+| `VITE_NEUROFORGE_URL` | What the application reads; must equal `E2E_REAL_AUTH_URL` |
+
+The account must be an isolated test account.
+Do not supply production credentials.
+The spec performs a login and reads local storage.
+It writes nothing.
+
+The spec compares `VITE_NEUROFORGE_URL` with `E2E_REAL_AUTH_URL` and fails on a
+mismatch.
+Without that check the page can use the default endpoint while the gate reports
+a real one.
+
+### The release gate
+
+`.github/workflows/release-gate.yml` runs the real-authentication lane.
+It runs on a `v*` tag, on dispatch, and on a workflow call.
+The job is blocking, and it fails when the settings are absent, so the gate
+cannot pass unconfigured.
+
+**The gate does not yet gate anything.** This repository has no publish or
+deploy workflow. A tag-triggered run happens alongside a release; it does not
+prevent one.
+
+`workflow_call` exists so a future publish workflow enforces the gate by
+construction. A publish job must call this workflow and declare `needs` on it,
+or sit behind a protected environment that requires the check. A publish job
+that merely runs after this one is not gated.
+
+Full browser regression also accepts a workflow call, and belongs here as a
+second blocking job once the service-dependent specs move to their own lane.
+
+### What the downstream specs need
+
+The 138 specs under `tests/e2e/` beyond the auth files are integration tests.
+They need a local service stack that CI does not run.
+The application requests `ws://localhost:8001/ws`, license validation on
+`http://localhost:8002`, and two MCP servers.
+Each request is refused in CI, so the specs time out on content that never
+renders.
+Authentication is not the cause.
+See `docs/KNOWN_ISSUES.md`.
 
 
 ---

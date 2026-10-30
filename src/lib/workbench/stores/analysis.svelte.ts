@@ -74,7 +74,7 @@ function createAnalysisStore() {
 			state.drawerMinimized = false;
 		},
 
-		setError(error: string) {
+		setError(error: string | null) {
 			state.error = error;
 			state.isAnalyzing = false;
 		},

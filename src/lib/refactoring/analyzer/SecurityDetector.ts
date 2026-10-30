@@ -37,13 +37,13 @@ export class SecurityDetector {
 		const lines = content.split('\n');
 
 		const secretPatterns = [
-			{ pattern: /(?:password|passwd|pwd)\s*[:=]\s*["'][^"']+["']/gi, name: 'password' },
-			{ pattern: /(?:api[_-]?key|apikey)\s*[:=]\s*["'][^"']+["']/gi, name: 'API key' },
-			{ pattern: /(?:secret|token)\s*[:=]\s*["'][^"']+["']/gi, name: 'secret/token' },
-			{ pattern: /sk-[a-zA-Z0-9]{20,}/g, name: 'OpenAI API key' },
-			{ pattern: /ghp_[a-zA-Z0-9]{36}/g, name: 'GitHub token' },
-			{ pattern: /xox[baprs]-[a-zA-Z0-9-]+/g, name: 'Slack token' },
-			{ pattern: /AKIA[0-9A-Z]{16}/g, name: 'AWS access key' }
+			{ pattern: /(?:password|passwd|pwd)\s*[:=]\s*["'][^"']+["']/i, name: 'password' },
+			{ pattern: /(?:api[_-]?key|apikey)\s*[:=]\s*["'][^"']+["']/i, name: 'API key' },
+			{ pattern: /(?:secret|token)\s*[:=]\s*["'][^"']+["']/i, name: 'secret/token' },
+			{ pattern: /sk-[a-zA-Z0-9]{20,}/, name: 'OpenAI API key' },
+			{ pattern: /ghp_[a-zA-Z0-9]{36}/, name: 'GitHub token' },
+			{ pattern: /xox[baprs]-[a-zA-Z0-9-]+/, name: 'Slack token' },
+			{ pattern: /AKIA[0-9A-Z]{16}/, name: 'AWS access key' }
 		];
 
 		secretPatterns.forEach(({ pattern, name }) => {
@@ -174,16 +174,16 @@ export class SecurityDetector {
 		const lines = content.split('\n');
 
 		const unsafePatterns = [
-			{ pattern: /\beval\s*\(/g, name: 'eval()' },
-			{ pattern: /new\s+Function\s*\(/g, name: 'new Function()' },
-			{ pattern: /setTimeout\s*\(\s*["'`]/g, name: 'setTimeout with string' },
-			{ pattern: /setInterval\s*\(\s*["'`]/g, name: 'setInterval with string' }
+			{ pattern: /\beval\s*\(/, name: 'eval()' },
+			{ pattern: /new\s+Function\s*\(/, name: 'new Function()' },
+			{ pattern: /setTimeout\s*\(\s*["'`]/, name: 'setTimeout with string' },
+			{ pattern: /setInterval\s*\(\s*["'`]/, name: 'setInterval with string' }
 		];
 
 		if (language === 'python') {
 			unsafePatterns.push(
-				{ pattern: /\bexec\s*\(/g, name: 'exec()' },
-				{ pattern: /\beval\s*\(/g, name: 'eval()' }
+				{ pattern: /\bexec\s*\(/, name: 'exec()' },
+				{ pattern: /\beval\s*\(/, name: 'eval()' }
 			);
 		}
 
@@ -216,16 +216,18 @@ export class SecurityDetector {
 		const lines = content.split('\n');
 
 		const weakPatterns = [
-			{ pattern: /Math\.random\(\)/g, name: 'Math.random()' },
-			{ pattern: /\bMD5\b/gi, name: 'MD5 hashing' },
-			{ pattern: /\bSHA1\b/gi, name: 'SHA1 hashing' },
-			{ pattern: /createHash\s*\(\s*["']md5["']\s*\)/gi, name: 'MD5 in crypto' }
+			{ pattern: /Math\.random\(\)/, name: 'Math.random()' },
+			{ pattern: /\bMD5\b/i, name: 'MD5 hashing' },
+			{ pattern: /\bSHA1\b/i, name: 'SHA1 hashing' },
+			{ pattern: /createHash\s*\(\s*["']md5["']\s*\)/i, name: 'MD5 in crypto' }
 		];
 
 		weakPatterns.forEach(({ pattern, name }) => {
 			lines.forEach((line, index) => {
 				if (pattern.test(line)) {
-					const isCryptoContext = /crypto|random|password|token|key|secret/i.test(line);
+					// `random` is deliberately absent: Math.random() contains it, so
+					// including it made this gate always true.
+					const isCryptoContext = /crypto|password|token|key|secret/i.test(line);
 
 					if (isCryptoContext || name.includes('MD5') || name.includes('SHA1')) {
 						issues.push({

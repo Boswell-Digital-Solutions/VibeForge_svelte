@@ -208,7 +208,7 @@ function handleKeyPress(event: KeyboardEvent) {
 <style>
 	.refinement-request-form {
 		background: white;
-		border: 1px solid theme('colors.gray.200');
+		border: 1px solid var(--color-gray-200);
 		border-radius: 0.5rem;
 		padding: 1.5rem;
 		max-width: 600px;
@@ -221,13 +221,13 @@ function handleKeyPress(event: KeyboardEvent) {
 	.form-title {
 		font-size: 1.125rem;
 		font-weight: 600;
-		color: theme('colors.gray.800');
+		color: var(--color-gray-800);
 		margin-bottom: 0.5rem;
 	}
 
 	.form-subtitle {
 		font-size: 0.875rem;
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 		line-height: 1.5;
 	}
 
@@ -239,13 +239,13 @@ function handleKeyPress(event: KeyboardEvent) {
 		display: block;
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 		margin-bottom: 0.5rem;
 	}
 
 	.requirements-list {
-		background: theme('colors.gray.50');
-		border: 1px solid theme('colors.gray.200');
+		background: var(--color-gray-50);
+		border: 1px solid var(--color-gray-200);
 		border-radius: 0.375rem;
 		padding: 0.75rem;
 		margin-bottom: 0.75rem;
@@ -269,14 +269,14 @@ function handleKeyPress(event: KeyboardEvent) {
 
 	.requirement-number {
 		font-weight: 600;
-		color: theme('colors.blue.600');
+		color: var(--color-blue-600);
 		min-width: 1.5rem;
 	}
 
 	.requirement-text {
 		flex: 1;
 		font-size: 0.875rem;
-		color: theme('colors.gray.800');
+		color: var(--color-gray-800);
 	}
 
 	.remove-button {
@@ -286,8 +286,8 @@ function handleKeyPress(event: KeyboardEvent) {
 		align-items: center;
 		justify-content: center;
 		border-radius: 50%;
-		background: theme('colors.red.100');
-		color: theme('colors.red.600');
+		background: var(--color-red-100);
+		color: var(--color-red-600);
 		border: none;
 		cursor: pointer;
 		font-size: 1.25rem;
@@ -295,7 +295,7 @@ function handleKeyPress(event: KeyboardEvent) {
 	}
 
 	.remove-button:hover {
-		background: theme('colors.red.200');
+		background: var(--color-red-200);
 	}
 
 	.add-requirement {
@@ -306,21 +306,21 @@ function handleKeyPress(event: KeyboardEvent) {
 	.form-input {
 		flex: 1;
 		padding: 0.5rem 0.75rem;
-		border: 1px solid theme('colors.gray.300');
+		border: 1px solid var(--color-gray-300);
 		border-radius: 0.375rem;
 		font-size: 0.875rem;
 	}
 
 	.form-input:focus {
 		outline: none;
-		border-color: theme('colors.blue.500');
+		border-color: var(--color-blue-500);
 		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 	}
 
 	.form-textarea {
 		width: 100%;
 		padding: 0.5rem 0.75rem;
-		border: 1px solid theme('colors.gray.300');
+		border: 1px solid var(--color-gray-300);
 		border-radius: 0.375rem;
 		font-size: 0.875rem;
 		resize: vertical;
@@ -329,13 +329,13 @@ function handleKeyPress(event: KeyboardEvent) {
 
 	.form-textarea:focus {
 		outline: none;
-		border-color: theme('colors.blue.500');
+		border-color: var(--color-blue-500);
 		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 	}
 
 	.add-button {
 		padding: 0.5rem 1rem;
-		background: theme('colors.blue.600');
+		background: var(--color-blue-600);
 		color: white;
 		border: none;
 		border-radius: 0.375rem;
@@ -345,7 +345,7 @@ function handleKeyPress(event: KeyboardEvent) {
 	}
 
 	.add-button:hover:not(:disabled) {
-		background: theme('colors.blue.700');
+		background: var(--color-blue-700);
 	}
 
 	.add-button:disabled {
@@ -355,7 +355,7 @@ function handleKeyPress(event: KeyboardEvent) {
 
 	.form-help {
 		font-size: 0.75rem;
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 		margin-top: 0.25rem;
 	}
 
@@ -364,21 +364,21 @@ function handleKeyPress(event: KeyboardEvent) {
 		align-items: center;
 		gap: 0.5rem;
 		padding: 0.75rem;
-		background: theme('colors.red.50');
-		border: 1px solid theme('colors.red.200');
+		background: var(--color-red-50);
+		border: 1px solid var(--color-red-200);
 		border-radius: 0.375rem;
 		margin-bottom: 1rem;
 	}
 
 	.error-icon {
 		font-size: 1.25rem;
-		color: theme('colors.red.500');
+		color: var(--color-red-500);
 	}
 
 	.error-message {
 		flex: 1;
 		font-size: 0.875rem;
-		color: theme('colors.red.700');
+		color: var(--color-red-700);
 	}
 
 	.form-actions {
@@ -393,7 +393,7 @@ function handleKeyPress(event: KeyboardEvent) {
 		justify-content: center;
 		gap: 0.5rem;
 		padding: 0.75rem 1.5rem;
-		background: theme('colors.green.600');
+		background: var(--color-green-600);
 		color: white;
 		border: none;
 		border-radius: 0.375rem;
@@ -403,7 +403,7 @@ function handleKeyPress(event: KeyboardEvent) {
 	}
 
 	.submit-button:hover:not(:disabled) {
-		background: theme('colors.green.700');
+		background: var(--color-green-700);
 	}
 
 	.submit-button:disabled {
@@ -428,41 +428,41 @@ function handleKeyPress(event: KeyboardEvent) {
 
 	.help-text {
 		font-size: 0.75rem;
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 		text-align: center;
 	}
 
 	:global(.dark) .refinement-request-form {
-		background: theme('colors.gray.800');
-		border-color: theme('colors.gray.700');
+		background: var(--color-gray-800);
+		border-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .form-title {
-		color: theme('colors.gray.100');
+		color: var(--color-gray-100);
 	}
 
 	:global(.dark) .form-subtitle,
 	:global(.dark) .form-label {
-		color: theme('colors.gray.300');
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .requirements-list {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.gray.700');
+		background: var(--color-gray-900);
+		border-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .requirement-item {
-		background: theme('colors.gray.800');
+		background: var(--color-gray-800);
 	}
 
 	:global(.dark) .requirement-text {
-		color: theme('colors.gray.100');
+		color: var(--color-gray-100);
 	}
 
 	:global(.dark) .form-input,
 	:global(.dark) .form-textarea {
-		background: theme('colors.gray.700');
-		border-color: theme('colors.gray.600');
-		color: theme('colors.gray.100');
+		background: var(--color-gray-700);
+		border-color: var(--color-gray-600);
+		color: var(--color-gray-100);
 	}
 </style>

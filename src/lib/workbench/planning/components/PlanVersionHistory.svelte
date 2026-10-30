@@ -290,7 +290,7 @@ function getVersionColor(version: PlanVersion): string {
 <style>
 	.version-history {
 		background: white;
-		border: 1px solid theme('colors.gray.200');
+		border: 1px solid var(--color-gray-200);
 		border-radius: 0.5rem;
 		overflow: hidden;
 	}
@@ -300,8 +300,8 @@ function getVersionColor(version: PlanVersion): string {
 		justify-content: space-between;
 		align-items: center;
 		padding: 1rem 1.5rem;
-		border-bottom: 1px solid theme('colors.gray.200');
-		background: theme('colors.gray.50');
+		border-bottom: 1px solid var(--color-gray-200);
+		background: var(--color-gray-50);
 	}
 
 	.header-left {
@@ -313,7 +313,7 @@ function getVersionColor(version: PlanVersion): string {
 	.history-title {
 		font-size: 1rem;
 		font-weight: 600;
-		color: theme('colors.gray.800');
+		color: var(--color-gray-800);
 		margin: 0;
 	}
 
@@ -322,8 +322,8 @@ function getVersionColor(version: PlanVersion): string {
 		align-items: center;
 		justify-content: center;
 		padding: 0.125rem 0.5rem;
-		background: theme('colors.blue.100');
-		color: theme('colors.blue.700');
+		background: var(--color-blue-100);
+		color: var(--color-blue-700);
 		border-radius: 9999px;
 		font-size: 0.75rem;
 		font-weight: 600;
@@ -339,7 +339,7 @@ function getVersionColor(version: PlanVersion): string {
 		align-items: center;
 		gap: 0.375rem;
 		padding: 0.5rem 0.75rem;
-		border: 1px solid theme('colors.gray.300');
+		border: 1px solid var(--color-gray-300);
 		border-radius: 0.375rem;
 		background: white;
 		font-size: 0.875rem;
@@ -349,8 +349,8 @@ function getVersionColor(version: PlanVersion): string {
 	}
 
 	.action-button:hover:not(:disabled) {
-		background: theme('colors.gray.50');
-		border-color: theme('colors.gray.400');
+		background: var(--color-gray-50);
+		border-color: var(--color-gray-400);
 	}
 
 	.action-button:disabled {
@@ -359,23 +359,23 @@ function getVersionColor(version: PlanVersion): string {
 	}
 
 	.compare-button {
-		color: theme('colors.blue.700');
-		border-color: theme('colors.blue.300');
+		color: var(--color-blue-700);
+		border-color: var(--color-blue-300);
 	}
 
 	.compare-button:hover:not(:disabled) {
-		background: theme('colors.blue.50');
-		border-color: theme('colors.blue.400');
+		background: var(--color-blue-50);
+		border-color: var(--color-blue-400);
 	}
 
 	.cancel-button {
-		color: theme('colors.red.700');
-		border-color: theme('colors.red.300');
+		color: var(--color-red-700);
+		border-color: var(--color-red-300);
 	}
 
 	.cancel-button:hover {
-		background: theme('colors.red.50');
-		border-color: theme('colors.red.400');
+		background: var(--color-red-50);
+		border-color: var(--color-red-400);
 	}
 
 	.compare-mode-header {
@@ -387,7 +387,7 @@ function getVersionColor(version: PlanVersion): string {
 	.compare-label {
 		font-size: 0.875rem;
 		font-weight: 500;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 	}
 
 	.button-icon {
@@ -425,36 +425,36 @@ function getVersionColor(version: PlanVersion): string {
 		height: 0.75rem;
 		border-radius: 50%;
 		border: 2px solid white;
-		box-shadow: 0 0 0 2px theme('colors.gray.400');
-		background: theme('colors.gray.400');
+		box-shadow: 0 0 0 2px var(--color-gray-400);
+		background: var(--color-gray-400);
 		flex-shrink: 0;
 	}
 
 	.marker-dot.marker-current {
-		box-shadow: 0 0 0 2px theme('colors.blue.500');
-		background: theme('colors.blue.500');
+		box-shadow: 0 0 0 2px var(--color-blue-500);
+		background: var(--color-blue-500);
 	}
 
 	.marker-dot.marker-failed {
-		box-shadow: 0 0 0 2px theme('colors.red.500');
-		background: theme('colors.red.500');
+		box-shadow: 0 0 0 2px var(--color-red-500);
+		background: var(--color-red-500);
 	}
 
 	.marker-dot.marker-cancelled {
-		box-shadow: 0 0 0 2px theme('colors.gray.300');
-		background: theme('colors.gray.300');
+		box-shadow: 0 0 0 2px var(--color-gray-300);
+		background: var(--color-gray-300);
 	}
 
 	.marker-line {
 		width: 2px;
 		flex: 1;
-		background: theme('colors.gray.300');
+		background: var(--color-gray-300);
 		min-height: 2rem;
 	}
 
 	.version-card {
 		flex: 1;
-		border: 1px solid theme('colors.gray.200');
+		border: 1px solid var(--color-gray-200);
 		border-radius: 0.5rem;
 		padding: 1rem;
 		background: white;
@@ -462,22 +462,22 @@ function getVersionColor(version: PlanVersion): string {
 	}
 
 	.timeline-item.selected .version-card {
-		border-color: theme('colors.blue.400');
+		border-color: var(--color-blue-400);
 		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 	}
 
 	.timeline-item.current .version-card {
-		background: theme('colors.blue.50');
-		border-color: theme('colors.blue.300');
+		background: var(--color-blue-50);
+		border-color: var(--color-blue-300);
 	}
 
 	.timeline-item.compare-selected .version-card {
-		border-color: theme('colors.purple.400');
+		border-color: var(--color-purple-400);
 		box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
 	}
 
 	.timeline-item.compare-mode:hover .version-card {
-		border-color: theme('colors.gray.400');
+		border-color: var(--color-gray-400);
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 	}
 
@@ -498,15 +498,15 @@ function getVersionColor(version: PlanVersion): string {
 	.version-number {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: theme('colors.gray.800');
+		color: var(--color-gray-800);
 	}
 
 	.current-badge {
 		display: inline-flex;
 		align-items: center;
 		padding: 0.125rem 0.5rem;
-		background: theme('colors.blue.100');
-		color: theme('colors.blue.700');
+		background: var(--color-blue-100);
+		color: var(--color-blue-700);
 		border-radius: 9999px;
 		font-size: 0.75rem;
 		font-weight: 600;
@@ -518,8 +518,8 @@ function getVersionColor(version: PlanVersion): string {
 		justify-content: center;
 		width: 1.25rem;
 		height: 1.25rem;
-		background: theme('colors.purple.100');
-		color: theme('colors.purple.700');
+		background: var(--color-purple-100);
+		color: var(--color-purple-700);
 		border-radius: 50%;
 		font-size: 0.75rem;
 		font-weight: 700;
@@ -527,7 +527,7 @@ function getVersionColor(version: PlanVersion): string {
 
 	.version-timestamp {
 		font-size: 0.75rem;
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 	}
 
 	.card-content {
@@ -544,7 +544,7 @@ function getVersionColor(version: PlanVersion): string {
 		gap: 0.375rem;
 		font-size: 0.813rem;
 		font-weight: 600;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 		margin-bottom: 0.5rem;
 	}
 
@@ -563,7 +563,7 @@ function getVersionColor(version: PlanVersion): string {
 		position: relative;
 		padding-left: 1rem;
 		font-size: 0.813rem;
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 		margin-bottom: 0.25rem;
 	}
 
@@ -571,7 +571,7 @@ function getVersionColor(version: PlanVersion): string {
 		content: '•';
 		position: absolute;
 		left: 0;
-		color: theme('colors.blue.500');
+		color: var(--color-blue-500);
 		font-weight: bold;
 	}
 
@@ -582,10 +582,10 @@ function getVersionColor(version: PlanVersion): string {
 	.additional-context {
 		margin-top: 0.5rem;
 		padding: 0.5rem;
-		background: theme('colors.gray.50');
+		background: var(--color-gray-50);
 		border-radius: 0.25rem;
 		font-size: 0.813rem;
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 	}
 
 	.initial-version {
@@ -593,14 +593,14 @@ function getVersionColor(version: PlanVersion): string {
 		align-items: center;
 		gap: 0.375rem;
 		padding: 0.5rem;
-		background: theme('colors.green.50');
+		background: var(--color-green-50);
 		border-radius: 0.25rem;
 		margin-bottom: 0.75rem;
 	}
 
 	.initial-text {
 		font-size: 0.813rem;
-		color: theme('colors.green.700');
+		color: var(--color-green-700);
 		font-weight: 500;
 	}
 
@@ -615,32 +615,32 @@ function getVersionColor(version: PlanVersion): string {
 		justify-content: space-between;
 		align-items: center;
 		padding: 0.375rem 0.5rem;
-		background: theme('colors.gray.50');
+		background: var(--color-gray-50);
 		border-radius: 0.25rem;
 	}
 
 	.metric-label {
 		font-size: 0.75rem;
 		font-weight: 500;
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 	}
 
 	.metric-value {
 		font-size: 0.75rem;
 		font-weight: 600;
-		color: theme('colors.gray.800');
+		color: var(--color-gray-800);
 	}
 
 	.metric-value.status-completed {
-		color: theme('colors.green.600');
+		color: var(--color-green-600);
 	}
 
 	.metric-value.status-failed {
-		color: theme('colors.red.600');
+		color: var(--color-red-600);
 	}
 
 	.metric-value.status-cancelled {
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 	}
 
 	.card-actions {
@@ -648,7 +648,7 @@ function getVersionColor(version: PlanVersion): string {
 		gap: 0.5rem;
 		margin-top: 0.75rem;
 		padding-top: 0.75rem;
-		border-top: 1px solid theme('colors.gray.200');
+		border-top: 1px solid var(--color-gray-200);
 	}
 
 	.card-action-button {
@@ -658,7 +658,7 @@ function getVersionColor(version: PlanVersion): string {
 		justify-content: center;
 		gap: 0.375rem;
 		padding: 0.5rem;
-		border: 1px solid theme('colors.gray.300');
+		border: 1px solid var(--color-gray-300);
 		border-radius: 0.375rem;
 		background: white;
 		font-size: 0.813rem;
@@ -668,8 +668,8 @@ function getVersionColor(version: PlanVersion): string {
 	}
 
 	.card-action-button:hover:not(:disabled) {
-		background: theme('colors.gray.50');
-		border-color: theme('colors.gray.400');
+		background: var(--color-gray-50);
+		border-color: var(--color-gray-400);
 	}
 
 	.card-action-button:disabled {
@@ -698,122 +698,122 @@ function getVersionColor(version: PlanVersion): string {
 	.empty-text {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 		margin: 0 0 0.5rem 0;
 	}
 
 	.empty-subtext {
 		font-size: 0.813rem;
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 		max-width: 400px;
 		margin: 0;
 		line-height: 1.5;
 	}
 
 	:global(.dark) .version-history {
-		background: theme('colors.gray.800');
-		border-color: theme('colors.gray.700');
+		background: var(--color-gray-800);
+		border-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .history-header {
-		background: theme('colors.gray.900');
-		border-bottom-color: theme('colors.gray.700');
+		background: var(--color-gray-900);
+		border-bottom-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .history-title {
-		color: theme('colors.gray.100');
+		color: var(--color-gray-100);
 	}
 
 	:global(.dark) .version-count {
-		background: theme('colors.blue.900');
-		color: theme('colors.blue.300');
+		background: var(--color-blue-900);
+		color: var(--color-blue-300);
 	}
 
 	:global(.dark) .action-button {
-		background: theme('colors.gray.700');
-		border-color: theme('colors.gray.600');
-		color: theme('colors.gray.200');
+		background: var(--color-gray-700);
+		border-color: var(--color-gray-600);
+		color: var(--color-gray-200);
 	}
 
 	:global(.dark) .action-button:hover:not(:disabled) {
-		background: theme('colors.gray.600');
+		background: var(--color-gray-600);
 	}
 
 	:global(.dark) .version-card {
-		background: theme('colors.gray.800');
-		border-color: theme('colors.gray.700');
+		background: var(--color-gray-800);
+		border-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .timeline-item.current .version-card {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.blue.700');
+		background: var(--color-gray-900);
+		border-color: var(--color-blue-700);
 	}
 
 	:global(.dark) .version-number {
-		color: theme('colors.gray.200');
+		color: var(--color-gray-200);
 	}
 
 	:global(.dark) .current-badge {
-		background: theme('colors.blue.900');
-		color: theme('colors.blue.300');
+		background: var(--color-blue-900);
+		color: var(--color-blue-300);
 	}
 
 	:global(.dark) .version-timestamp {
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 	}
 
 	:global(.dark) .refinement-title {
-		color: theme('colors.gray.300');
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .refinement-item {
-		color: theme('colors.gray.400');
+		color: var(--color-gray-400);
 	}
 
 	:global(.dark) .additional-context {
-		background: theme('colors.gray.900');
-		color: theme('colors.gray.400');
+		background: var(--color-gray-900);
+		color: var(--color-gray-400);
 	}
 
 	:global(.dark) .initial-version {
-		background: theme('colors.gray.900');
+		background: var(--color-gray-900);
 	}
 
 	:global(.dark) .initial-text {
-		color: theme('colors.green.400');
+		color: var(--color-green-400);
 	}
 
 	:global(.dark) .metric-item {
-		background: theme('colors.gray.900');
+		background: var(--color-gray-900);
 	}
 
 	:global(.dark) .metric-label {
-		color: theme('colors.gray.400');
+		color: var(--color-gray-400);
 	}
 
 	:global(.dark) .metric-value {
-		color: theme('colors.gray.200');
+		color: var(--color-gray-200);
 	}
 
 	:global(.dark) .card-actions {
-		border-top-color: theme('colors.gray.700');
+		border-top-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .card-action-button {
-		background: theme('colors.gray.700');
-		border-color: theme('colors.gray.600');
-		color: theme('colors.gray.300');
+		background: var(--color-gray-700);
+		border-color: var(--color-gray-600);
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .card-action-button:hover:not(:disabled) {
-		background: theme('colors.gray.600');
+		background: var(--color-gray-600);
 	}
 
 	:global(.dark) .empty-text {
-		color: theme('colors.gray.300');
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .empty-subtext {
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 	}
 </style>

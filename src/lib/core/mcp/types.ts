@@ -98,6 +98,8 @@ export interface McpSchemaProperty {
 export interface McpToolCallParams {
 	name: string;
 	arguments?: Record<string, unknown>;
+	/** JSON-RPC params are a structured JSON value. */
+	[key: string]: unknown;
 }
 
 export interface McpToolResult {
@@ -122,6 +124,8 @@ export interface McpInitializeParams {
 		name: string;
 		version: string;
 	};
+	/** JSON-RPC params are a structured JSON value. */
+	[key: string]: unknown;
 }
 
 export interface McpInitializeResult {

@@ -43,10 +43,18 @@ Displays model usage counts, acceptance rates, and call distribution
     totalCalls = 0;
 
     for (const { id, provider } of models) {
-      const stats = performanceMetrics.getMetrics(provider as LLMProviderType, id);
-      if (stats && stats.totalRequests > 0) {
+      const metrics = performanceMetrics.getMetrics(id, provider);
+      if (metrics && metrics.totalRequests > 0) {
+        const stats: ModelStats = {
+          totalRequests: metrics.totalRequests,
+          acceptedCount: Math.round(
+            metrics.recommendationAcceptanceRate * metrics.totalRequests
+          ),
+          errorCount: Math.round(metrics.errorRate * metrics.totalRequests),
+          avgResponseTime: metrics.avgResponseTimeMs,
+        };
         modelStats.push({ model: id, provider, stats });
-        totalCalls += stats.totalRequests;
+        totalCalls += metrics.totalRequests;
       }
     }
 

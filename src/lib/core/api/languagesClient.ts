@@ -6,9 +6,10 @@
  */
 
 import type { Language, LanguageCategory } from "$lib/data/languages";
+import { NEUROFORGE_URL } from "./endpoints";
 
 const NEUROFORGE_BASE_URL =
-  import.meta.env.VITE_NEUROFORGE_URL || "http://localhost:8000";
+  NEUROFORGE_URL;
 
 // API Response Types
 export interface LanguageListResponse {

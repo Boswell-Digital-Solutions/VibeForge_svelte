@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { refactoringStore } from '$lib/stores/refactoringStore.svelte';
-	import { RefactoringAutomation } from '$lib/refactoring';
 
 	let refactoringState = $derived(refactoringStore.state);
 	let project = $derived(refactoringStore.project);
@@ -280,7 +279,7 @@
 					<div class="feedback-box">
 						<strong>Estimation Feedback:</strong>
 						<ul>
-							{#each outcome.estimationFeedback.factors as factor}
+							{#each outcome.estimationFeedback.flatMap((f) => f.factors) as factor}
 								<li class:negative={factor.impact === 'negative'} class:positive={factor.impact === 'positive'}>
 									{factor.factor}
 									<span class="magnitude">({(factor.magnitude * 100).toFixed(0)}% impact)</span>

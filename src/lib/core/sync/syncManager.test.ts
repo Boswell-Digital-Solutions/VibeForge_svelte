@@ -29,7 +29,8 @@ import {
 } from './syncManager';
 import * as indexedDb from './indexedDb';
 import * as api from '../api/dataforgeClient.enhanced';
-import type { Workspace, Run, ContextBlock, PromptTemplate } from '../types';
+import type { Workspace, ContextBlock } from '../types';
+import type { Run, PromptTemplate } from '../api/dataforgeClient.enhanced';
 
 // Mock dependencies
 vi.mock('../api/dataforgeClient.enhanced');
@@ -61,10 +62,11 @@ describe('Sync Manager', () => {
 			expect(isOnline()).toBe(false);
 		});
 
-		it('should return online status object', () => {
-			const status = getOnlineStatus();
-			expect(status).toHaveProperty('isOnline');
-			expect(typeof status.isOnline).toBe('boolean');
+		it('should report online status as a boolean', () => {
+			// isOnline is exported as an alias of getOnlineStatus, so the two
+			// share one contract.
+			expect(typeof getOnlineStatus()).toBe('boolean');
+			expect(getOnlineStatus()).toBe(isOnline());
 		});
 	});
 
@@ -73,9 +75,9 @@ describe('Sync Manager', () => {
 			id: 'ws-1',
 			name: 'Test Workspace',
 			description: 'Test',
-			settings: {},
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			settings: { theme: 'dark', autoSave: true },
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		};
 
 		it('should save workspace to IndexedDB immediately (optimistic)', async () => {
@@ -83,10 +85,7 @@ describe('Sync Manager', () => {
 			vi.mocked(indexedDb.syncMetadataStore.save).mockResolvedValue();
 			vi.mocked(indexedDb.syncMetadataStore.get).mockResolvedValue(null);
 			vi.mocked(api.getWorkspace).mockRejectedValue(new Error('Not found'));
-			vi.mocked(api.createWorkspace).mockResolvedValue({
-				success: true,
-				data: mockWorkspace,
-			});
+			vi.mocked(api.createWorkspace).mockResolvedValue(mockWorkspace);
 
 			await saveWorkspace(mockWorkspace);
 
@@ -101,10 +100,7 @@ describe('Sync Manager', () => {
 			vi.mocked(indexedDb.syncMetadataStore.save).mockResolvedValue();
 			vi.mocked(indexedDb.syncMetadataStore.get).mockResolvedValue(null);
 			vi.mocked(api.getWorkspace).mockRejectedValue(new Error('Not found'));
-			vi.mocked(api.createWorkspace).mockResolvedValue({
-				success: true,
-				data: mockWorkspace,
-			});
+			vi.mocked(api.createWorkspace).mockResolvedValue(mockWorkspace);
 
 			await saveWorkspace(mockWorkspace);
 
@@ -141,14 +137,8 @@ describe('Sync Manager', () => {
 				isPending: false,
 				hasConflict: false,
 			});
-			vi.mocked(api.getWorkspace).mockResolvedValue({
-				success: true,
-				data: mockWorkspace,
-			});
-			vi.mocked(api.updateWorkspace).mockResolvedValue({
-				success: true,
-				data: mockWorkspace,
-			});
+			vi.mocked(api.getWorkspace).mockResolvedValue(mockWorkspace);
+			vi.mocked(api.updateWorkspace).mockResolvedValue(mockWorkspace);
 
 			await saveWorkspace(mockWorkspace);
 
@@ -177,9 +167,9 @@ describe('Sync Manager', () => {
 			id: 'ws-1',
 			name: 'Test Workspace',
 			description: 'Test',
-			settings: {},
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			settings: { theme: 'dark', autoSave: true },
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		};
 
 		it('should get workspace from IndexedDB when offline', async () => {
@@ -197,10 +187,8 @@ describe('Sync Manager', () => {
 		it('should get workspace from server when online and cache', async () => {
 			Object.defineProperty(navigator, 'onLine', { value: true });
 
-			vi.mocked(api.getWorkspace).mockResolvedValue({
-				success: true,
-				data: mockWorkspace,
-			});
+			vi.mocked(indexedDb.workspaceStore.get).mockResolvedValue(null);
+			vi.mocked(api.getWorkspace).mockResolvedValue(mockWorkspace);
 			vi.mocked(indexedDb.workspaceStore.save).mockResolvedValue();
 
 			const result = await getWorkspace('ws-1');
@@ -225,15 +213,8 @@ describe('Sync Manager', () => {
 		it('should list workspaces from server and cache', async () => {
 			const mockWorkspaces = [mockWorkspace];
 
-			vi.mocked(api.listWorkspaces).mockResolvedValue({
-				success: true,
-				data: {
-					results: mockWorkspaces,
-					total: 1,
-					page: 1,
-					page_size: 100,
-				},
-			});
+			vi.mocked(indexedDb.workspaceStore.getAll).mockResolvedValue([]);
+			vi.mocked(api.listWorkspaces).mockResolvedValue(mockWorkspaces);
 			vi.mocked(indexedDb.workspaceStore.save).mockResolvedValue();
 
 			const result = await listWorkspaces();
@@ -247,9 +228,7 @@ describe('Sync Manager', () => {
 		it('should delete workspace from IndexedDB and server', async () => {
 			vi.mocked(indexedDb.workspaceStore.delete).mockResolvedValue();
 			vi.mocked(indexedDb.syncMetadataStore.delete).mockResolvedValue();
-			vi.mocked(api.deleteWorkspace).mockResolvedValue({
-				success: true,
-			});
+			vi.mocked(api.deleteWorkspace).mockResolvedValue(undefined);
 
 			await deleteWorkspace('ws-1');
 
@@ -272,12 +251,15 @@ describe('Sync Manager', () => {
 	describe('Context Block Sync', () => {
 		const mockBlock: ContextBlock = {
 			id: 'block-1',
-			workspace_id: 'ws-1',
 			title: 'Test Block',
+			kind: 'project',
 			content: 'Test content',
-			category: 'general',
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			description: 'Test block',
+			tags: ['general'],
+			isActive: true,
+			source: 'workspace',
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		};
 
 		it('should save context block optimistically', async () => {
@@ -296,18 +278,20 @@ describe('Sync Manager', () => {
 		});
 
 		it('should list context blocks with server sync', async () => {
+			vi.mocked(indexedDb.contextBlockStore.getAll).mockResolvedValue([]);
 			vi.mocked(api.listContextBlocks).mockResolvedValue({
 				success: true,
 				data: {
-					results: [mockBlock],
+					items: [mockBlock],
 					total: 1,
 					page: 1,
-					page_size: 100,
+					pageSize: 100,
+					hasMore: false,
 				},
 			});
 			vi.mocked(indexedDb.contextBlockStore.save).mockResolvedValue();
 
-			const result = await listContextBlocks('ws-1');
+			const result = await listContextBlocks();
 
 			expect(result).toEqual([mockBlock]);
 		});
@@ -327,13 +311,17 @@ describe('Sync Manager', () => {
 	describe('Run Sync', () => {
 		const mockRun: Run = {
 			id: 'run-1',
-			workspace_id: 'ws-1',
+			workspaceId: 'ws-1',
+			promptText: 'Test prompt',
+			contextBlockIds: [],
 			model: 'claude-3.5-sonnet',
-			prompt: 'Test prompt',
-			response: 'Test response',
-			total_tokens: 100,
+			provider: 'anthropic',
+			output: 'Test response',
+			tokensUsed: 100,
 			cost: 0.01,
-			created_at: new Date().toISOString(),
+			latencyMs: 1200,
+			status: 'completed',
+			createdAt: new Date().toISOString(),
 		};
 
 		it('should save run optimistically', async () => {
@@ -352,13 +340,15 @@ describe('Sync Manager', () => {
 		});
 
 		it('should list runs for workspace', async () => {
+			vi.mocked(indexedDb.runStore.getByWorkspace).mockResolvedValue([]);
 			vi.mocked(api.listRuns).mockResolvedValue({
 				success: true,
 				data: {
-					results: [mockRun],
+					items: [mockRun],
 					total: 1,
 					page: 1,
-					page_size: 100,
+					pageSize: 100,
+					hasMore: false,
 				},
 			});
 			vi.mocked(indexedDb.runStore.save).mockResolvedValue();
@@ -372,13 +362,17 @@ describe('Sync Manager', () => {
 	describe('Prompt Template Sync', () => {
 		const mockTemplate: PromptTemplate = {
 			id: 'template-1',
-			workspace_id: 'ws-1',
+			workspaceId: 'ws-1',
 			name: 'Test Template',
+			description: 'Greets by name',
 			template: 'Hello {name}',
-			category: 'greeting',
 			variables: ['name'],
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			category: 'greeting',
+			tags: ['greeting'],
+			isPublic: false,
+			createdBy: 'user-1',
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		};
 
 		it('should save prompt template optimistically', async () => {
@@ -422,7 +416,7 @@ describe('Sync Manager', () => {
 
 			vi.mocked(indexedDb.pendingOperationsStore.getAll).mockResolvedValue(pendingOps);
 			vi.mocked(indexedDb.pendingOperationsStore.remove).mockResolvedValue();
-			vi.mocked(api.updateWorkspace).mockResolvedValue({ success: true, data: {} as any });
+			vi.mocked(api.updateWorkspace).mockResolvedValue({} as any);
 			vi.mocked(api.createRun).mockResolvedValue({ success: true, data: {} as any });
 
 			const result = await syncAll();
@@ -495,15 +489,15 @@ describe('Sync Manager', () => {
 				id: 'ws-1',
 				name: 'Local Name',
 				description: 'Test',
-				settings: {},
-				created_at: new Date().toISOString(),
-				updated_at: new Date(Date.now() - 1000).toISOString(),
+				settings: { theme: 'dark', autoSave: true },
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date(Date.now() - 1000).toISOString(),
 			};
 
 			const serverWorkspace: Workspace = {
 				...localWorkspace,
 				name: 'Server Name',
-				updated_at: new Date().toISOString(), // Newer
+				updatedAt: new Date().toISOString(), // Newer
 			};
 
 			vi.mocked(indexedDb.workspaceStore.save).mockResolvedValue();
@@ -517,10 +511,7 @@ describe('Sync Manager', () => {
 				isPending: false,
 				hasConflict: false,
 			});
-			vi.mocked(api.getWorkspace).mockResolvedValue({
-				success: true,
-				data: serverWorkspace,
-			});
+			vi.mocked(api.getWorkspace).mockResolvedValue(serverWorkspace);
 			vi.mocked(indexedDb.conflictsStore.save).mockResolvedValue();
 
 			// Attempting to save should detect conflict

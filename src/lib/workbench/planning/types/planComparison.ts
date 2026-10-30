@@ -144,6 +144,7 @@ export interface PlanComparison {
 			durationMs: number;
 			stageCount: number;
 		};
+		/** Each difference is sessionA minus sessionB: positive means A spent more. */
 		differences: {
 			tokenDiff: number;
 			costDiff: number;

@@ -11,8 +11,9 @@ import type {
   TrainingStatusResponse,
   ModelStatus,
 } from '$lib/types/ml';
+import { NEUROFORGE_URL } from '$lib/core/api/endpoints';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = NEUROFORGE_URL;
 const ML_API_PREFIX = '/api/v1/ml';
 
 /**
