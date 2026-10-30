@@ -86,13 +86,12 @@ VibeForge is explicitly **not**:
 Live source in this repo already uses "DataForge" for what the doctrine above calls the "VibeForge Local Evidence Vault":
 
 ```text
-src/lib/types/dataforge.ts
-src/lib/stores/dataforgeStore.ts
-src/lib/api/dataforge.ts
 src/lib/core/api/dataforgeClient.ts
 src/lib/core/api/dataforgeClient.enhanced.ts
 src/lib/core/api/dataforgeClient.enhanced.test.ts
 ```
+
+This list named six files until the dead-code sweep of 2026-10-30. Three of them — `src/lib/types/dataforge.ts`, `src/lib/stores/dataforgeStore.ts` and `src/lib/api/dataforge.ts` — were unreachable from every entry point in the application, and were deleted with the rest of the dead code. The debt is therefore half what it was, by removal rather than by rename: the three files above are still named `dataforge*` and still carry it.
 
 This code predates the naming doctrine above and is **not** an example to copy. It is not renamed as part of this documentation pass — that is a deferred, later-phase change, tracked as accepted, documented naming debt rather than left as an unstated inconsistency. New code must use "VibeForge Local Evidence Vault" naming; it must not extend the `dataforge*` pattern.
 

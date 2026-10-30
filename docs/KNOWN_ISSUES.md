@@ -229,42 +229,153 @@
   `pnpm test:run` 1434 passed, 1 skipped, unchanged. `pnpm build` 12 routes.
   `pnpm verify:artifact` 76/76 checks passed.
 
-## 2026-10-30 - Dead code unrelated to the route retirement (open)
+## 2026-10-30 - Dead code unrelated to the route retirement (closed)
 
-- What is wrong: resolving the import graph for the sweep above surfaced 107
-  further files under `src/` that nothing reaches — not a live route, not a
-  test, not even an archived page. They are unrelated to the route
-  retirement and were left alone.
-- Examples, not a complete list: `src/lib/components/dev/` (six files),
-  `src/lib/components/ML/`, `src/lib/components/marketplace/`,
-  `src/lib/components/sync/`, `src/lib/components/runs/`,
-  `src/lib/core/api/vibeforgeClient.ts`, and a group of stores
-  (`themeStore.ts`, `promptStore.ts`, `contextStore.ts`, `runStore.ts`)
-  superseded by `src/lib/core/stores`.
-- The count is a starting point, not a verified list. The sweep above showed
-  two traps that a per-file check has to clear first: several of these names
-  also exist on live files in sibling directories, and some files are reached
-  by configuration rather than by import — `src/tests/setup.ts` is named in
-  `vitest.config.ts` and is reachable from no import at all. Each candidate
-  needs the same per-file treatment before deletion.
-- Effect: dead code that still type-checks and still appears in search
-  results, so a reader may take it for a live surface. Not shipped — Vite
-  bundles only what a route reaches — so there is no artifact or runtime cost.
-- Scope: open, and deliberately not folded into the sweep above, which was
-  scoped to what the route retirement orphaned.
+- What was wrong: 107 files under `src/` that nothing reaches — not a live
+  route, not a test, not a configuration entry point, not even an archived
+  page.
+- Fix: all 107 deleted, 21,511 lines. No edits to surviving code.
+- Why deleting the whole set at once is safe: the dead set is the complement
+  of the reachable set, so it is closed by construction. If a surviving file
+  imported one of these, that file would have been reachable and would not
+  have been in the set. The property is not a claim about care taken; it
+  follows from how the set was computed.
+- What the set was: 27 unused barrel files (including `src/lib/index.ts`,
+  which held nothing but SvelteKit's placeholder comment); 18 superseded
+  duplicates — the unnumbered `NewProjectWizard/steps/Step*.svelte` replaced
+  by the numbered `Step1Intent`…`Step5Review` generation, `WizardProgress`,
+  five of the six files in `components/dev/`, the four stores (`themeStore`, `promptStore`,
+  `contextStore`, `runStore`) superseded by `src/lib/core/stores`, and
+  `core/api/{languagesClient,stackProfilesClient,vibeforgeClient}.ts`; and 62
+  files making up feature areas that were written but never wired to a route
+  — marketplace, ML, Insights, Streaming, Routing, the sync/runs/context
+  panels, research, the `FeatureGate`/`TrialBanner`/`UpgradePrompt` licensing
+  UI, the `dataforge`/`neuroforge` clients, stores and types, `codeAnalyzer`,
+  `recommendations`, the `refactoring/` stores, and `workbench/`
+  versions/history.
+- The feature areas were not abandoned carelessly, and that is the point.
+  All of them arrived in one 789-file commit on 2025-12-08 (`210cab6`), and
+  nothing since has been feature work on any of them — only repo-wide
+  mechanical sweeps: "clear all source type errors", "migrate Tailwind",
+  "one variable per service endpoint". The project was paying upkeep to keep
+  unreachable code type-clean and style-current. That cost, not the disk
+  space, is what this removes. `PHASE_3.2_PLAN.md` lists Pattern Marketplace
+  under "Future Enhancements (Phase 3.3+)", so those components existed ahead
+  of their own plan; the operator chose removal over keeping them staged, and
+  git history holds them at `210cab6` should any area be revived.
+- Two counting traps, both of which bit a first pass at this list and are
+  recorded so the next reader does not repeat them:
+  - **Configuration reachability.** `src/tests/mocks/app-environment.ts` is
+    imported by nothing. It is reached because `vitest.config.ts` aliases
+    `$app/environment` to it, and `src/tests/setup.ts` only because the same
+    file names it in `setupFiles`. An import-graph check that does not read
+    the build configuration will call both dead.
+  - **Commented-out imports.** `src/lib/core/api/vibeforgeClient.ts` was
+    first judged live on the strength of
+    `// const { vibeforgeClient } = await import('$lib/core/api/vibeforgeClient');`
+    in `workbench/stores/project.svelte.ts` — a dead edge inside a comment. A
+    scanner must strip comments before reading import specifiers, or dead
+    code keeps itself alive by being mentioned in prose about itself.
+- Also a trap, carried over from the previous sweep: name collisions. This
+  repository had two `StatusBar.svelte`, two `vibeforgeClient.ts`, two
+  `types/learning.ts`, and a `components/dev/` directory mirroring
+  `components/dev-environment/`. A search by component name reports the live
+  file and conceals the dead one.
+- Verification: `pnpm run check` 0 errors, warnings 225 to 164
+  and checked files 67 to 45, with every file that lost a
+  warning in the deleted set and no surviving file gaining one.
+  `pnpm test:run` 1434 passed, 1 skipped — unchanged, all 48 suites.
+  `pnpm build` 85 files. `pnpm verify:artifact` 76/76 checks passed.
+- `doc/system/00-overview.md` changed: three of the six files on its
+  documented `dataforge*` naming-debt list were in this set, so the debt is
+  now three files rather than six — reduced by removal, not by the rename
+  that remains deferred. `doc/VBFSYSTEM.md` rebuilt from it.
 
-## 2026-10-30 - `docs/ARCHITECTURE.md` describes retired surfaces (open)
+## 2026-10-30 - Non-canonical docs described a deleted store layer (closed)
 
-- What is wrong: the directory tree in `docs/ARCHITECTURE.md` still lists
-  `routes/presets/` and `routes/quick-run/`, retired by the `_archive`
-  change, and names four stores that nothing imports (see the entry above).
-- The dead-code sweep removed only the five lines naming files it deleted
-  (`components/presets/`, `components/quickrun/`, `StatusBar.svelte`,
-  `PresetsDrawer.svelte`, `SavePresetModal.svelte`), so that no line pointed
-  at a file the same commit removed. The rest of the file's drift predates
-  that change and was left alone rather than folded into a deletion.
-- `doc/system/` is unaffected: it does not name any of these components, so
-  no canonical system document changed and no rebuild was needed.
+- What was wrong: `docs/ARCHITECTURE.md` and `.github/copilot-instructions.md`
+  documented `themeStore.ts`, `promptStore.ts`, `contextStore.ts` and
+  `runStore.ts` as the live state layer, with a section each, worked code
+  examples and a method-by-method API reference. Those four stores were
+  superseded by `src/lib/core/stores` long before either document was last
+  touched, and the dead-code sweep deleted them.
+- Neither document was already right. The stores were unreachable, so both
+  described a surface no running code used. The sweep removed the files the
+  error pointed at; it did not create the error.
+- Fix: both rewritten against the code, verified file by file. The substance
+  of the correction is that there are **two store layers with two idioms**,
+  which neither document said:
+  - `src/lib/core/stores/` — Svelte 5 runes. A module-level `$state`, derived
+    with `$derived`, exported as one object of getters plus plain action
+    functions. No `subscribe`, and **no `$` prefix at the call site**:
+    `themeStore.current`, `themeStore.toggle()`.
+  - `src/lib/stores/` — mixed. Five classic `svelte/store` writables read with
+    `$` (`estimation`, `palette`, `patternComparison`, `presets`, `versions`);
+    five runes modules read without it (`projectOutcomes`, `refactoringStore`,
+    `teamStore`, `toast`, `trendData`). The `.svelte.ts` suffix is the signal.
+- Other corrections the pass turned up, each checked against the source:
+  - Every store example used Svelte 4 `writable`/`derived`/`subscribe`, which
+    the same documents' own "Design Patterns" section correctly told readers
+    not to use. The legacy `$theme` syntax no longer appears anywhere in
+    `src/`.
+  - `ForgeSideNav.svelte` and `ForgeTopBar.svelte` do not exist; the shell is
+    `TopBar`, `LeftRailNav`, `StatusBar` and `WorkbenchShell` in
+    `src/lib/ui/layout/`.
+  - The column components are in `src/lib/workbench/{context,prompt,output}/`,
+    not `src/lib/components/`.
+  - The documented route list named the retired `/presets` and `/quick-run`
+    and omitted `/analytics`, `/dashboard`, `/login`, `/refactoring` and
+    `/teams`.
+  - `ContextBlock` was documented without `content`, `createdAt`, `updatedAt`
+    or `metadata`, with a `lastUpdated` field that does not exist, and with a
+    `ContextKind` union missing `'data'`. It lives in
+    `core/types/domain.ts`; `types/context.ts` and `types/run.ts` are gone.
+  - `.github/copilot-instructions.md` still described the build as
+    `adapter-auto` "handles platform detection". It is `adapter-static`, and
+    the reason matters enough to state: `adapter-auto` wrote nothing, which
+    left the Tauri binary unbuildable.
+  - The settings screen has eight sections, not four, and the font-size
+    `accessibilityStore` it referenced was deleted; `AppearanceSettingsSection`
+    now controls theme only.
+  - `docs/ARCHITECTURE.md` claimed a bundle of "~150KB (gzipped)". Measured on
+    the current artifact, the JavaScript chunks gzip to roughly 406 KB and the
+    stylesheets to roughly 27 KB.
+  - The presets store is live and consumed by `PromptEditor`,
+    `PromptSelector` and the root layout, but no presets UI survives, so the
+    documents no longer point at `PresetsDrawer`, `SavePresetModal` or
+    `PresetDetailPanel`.
+- `.github/**` is outside `agent_edit_policy.may_edit` in
+  `repo.manifest.yaml`, which names only `src/**`, `src-tauri/**`, `tools/**`,
+  `tests/**`, `doc/**` and `docs/**`. The operator gave explicit permission for
+  this file. The policy is unchanged, so the next agent will face the same
+  question; widening it to include `.github/**` would make that unnecessary.
+- Verification: every backticked `*.svelte` and `*.ts` name, every `*Store`
+  identifier and every `/route` path in both documents was resolved against
+  the working tree. The only unresolved names are the ones the text says no
+  longer exist.
+
+## 2026-10-30 - `marketplaceStore` is carried with no consumer (open)
+
+- What is wrong: `src/lib/core/stores/marketplace.svelte.ts` is 779 lines and
+  has exactly two references in the repository — its own `export const
+  marketplaceStore` and the re-export in `src/lib/core/stores/index.ts`.
+  Nothing consumes it. It was the state layer for the marketplace components
+  the dead-code sweep removed.
+- Why the sweep did not catch it: reachability was computed through import
+  specifiers, and a *live barrel* re-exporting a module makes that module
+  reachable whether or not any symbol is consumed. This is a real limit of
+  that method, not an oversight in applying it: the same blind spot hides any
+  module kept alive solely by a barrel export. Finding these needs
+  symbol-level analysis, not module-level.
+- Effect: not shipped, because the bundler tree-shakes an unconsumed export,
+  but carried — it will keep being dragged through type checks and style
+  migrations, which is the cost the sweep set out to remove.
+- Also worth a per-file check on the same grounds: the other barrels under
+  `src/lib/core/` and `src/lib/workbench/`, for modules re-exported but never
+  consumed.
+- Scope: open. Recorded rather than removed, because this was a documentation
+  change and folding a deletion into it would make both harder to review.
+
 
 ## 2026-10-30 - Rust formatting cannot be checked crate-wide (open)
 
