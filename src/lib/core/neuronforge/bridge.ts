@@ -80,7 +80,15 @@ export type LocalLaneState =
 	/** Nothing answered on the loopback address. */
 	| { kind: 'unreachable'; detail: string }
 	/** There is no desktop bridge in this context, so the lane cannot be reached. */
-	| { kind: 'bridge_absent' };
+	| { kind: 'bridge_absent' }
+	/**
+	 * The bridge exists but cannot act: the capability is absent or malformed.
+	 *
+	 * Distinct from `refused`, which is the node rejecting a request that was
+	 * made. This one never left the machine, and the remedy is local
+	 * configuration rather than anything about the node.
+	 */
+	| { kind: 'bridge_unconfigured'; reason: string };
 
 /**
  * What the desktop bridge must provide.
@@ -177,5 +185,7 @@ export function describeLocalLaneState(state: LocalLaneState): string {
 			return `No local node answered: ${state.detail}`;
 		case 'bridge_absent':
 			return 'Local inference needs the desktop bridge; it is not available here';
+		case 'bridge_unconfigured':
+			return `The desktop bridge is not configured: ${state.reason}`;
 	}
 }

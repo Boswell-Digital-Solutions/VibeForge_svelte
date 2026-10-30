@@ -1,6 +1,83 @@
 # Known Issues
 
-## 2026-10-30 - No workflow builds or tests Rust (open)
+## 2026-10-30 - The desktop application cannot be built (open)
+
+- What is wrong: `src-tauri/tauri.conf.json` sets `frontendDist` to
+  `"../build"`. `svelte.config.js` uses `@sveltejs/adapter-auto`, which detects
+  no production environment in this repository and therefore writes no `build/`
+  directory. `pnpm build` prints `Could not detect a supported production
+  environment` and emits only `.svelte-kit/output`.
+- Effect: `cargo build --bin vibeforge` fails with `proc macro panicked ...
+  The frontendDist configuration is set to "../build" but this path doesn't
+  exist`. So does `tauri build`, and so does a bare `cargo test`, because it
+  builds every target. The desktop application has not been buildable.
+- This is pre-existing and predates the local inference lane. It is why the
+  Rust CI job verifies `--lib` only: with a stand-in `build/index.html` in
+  place, the binary compiles with the bridge command registered, so the
+  bridge itself is sound and the missing directory is the whole fault.
+- `ci.yml`'s Build job does not catch it. `pnpm build` exits 0, and the
+  `upload-artifact` step for `build/` defaults to `if-no-files-found: warn`,
+  so it uploads nothing and the job stays green.
+- Fix: decide how the application ships. `@sveltejs/adapter-static` with
+  `pages`/`assets` set to `build` is the usual choice for a Tauri frontend and
+  satisfies `frontendDist`. Pointing `frontendDist` at
+  `.svelte-kit/output/client` instead is a smaller change but ships an
+  unadapted bundle whose layout is not a stable contract.
+- Measured, not estimated. An earlier revision of this entry said
+  adapter-static "imposes prerendering on every route" as though that were a
+  cost. It was measured on 2026-10-30 and the cost is nil:
+  - `src/routes/` holds no `+page.server.ts`, no `+layout.server.ts`, no
+    `+server.ts`, no `+page.ts`, no form action, and no dynamic parameter.
+    Nothing in `src/` exports `prerender`, `ssr` or `csr`. With no dynamic
+    segment, SvelteKit prerenders every route without crawling, so
+    `handleUnseenRoutes` never arises.
+  - A trial build with `adapter({ pages: 'build', assets: 'build' })` and
+    `export const prerender = true` succeeded first time. It wrote all 16
+    routes with real rendered markup, 5 KB to 44 KB each, 99 files and 5.2 MB.
+    No route needed an opt-out.
+  - `cargo build --bin vibeforge` then succeeded against that output, with
+    `neuronforge_lane_state` registered.
+  - Behaviour is unchanged. Serving `build/` over a resolver that maps an
+    extensionless path to `.html`, as Tauri's asset protocol does, gives every
+    route HTTP 200 and the same count of interactive elements as `pnpm dev`
+    does for that route: 41 on `/settings`, 31 on `/history`, 20 on
+    `/analytics`, 17 on `/teams`, 14 on `/refactoring`, 1 on `/login`. Both
+    produce the same console errors, and all of them are backend absence
+    (license validation and the `ws://localhost:8001/ws` socket), present
+    identically under `pnpm dev`.
+  - The E2E lanes are unaffected: `playwright.config.ts` starts `pnpm dev`,
+    not the built output.
+  - Adapter-static would also make the Build job's artifact upload real. It
+    currently uploads nothing.
+- Two consequences worth stating, neither a blocker:
+  - `src/routes/_archive/` holds four pages that are live routes, not
+    archived. They appear in `.svelte-kit/output` today and prerender to
+    `build/_archive/*.html`. Prerendering does not create that; it makes it
+    visible.
+  - Prerendered markup is build-time state, so a list that is empty at build
+    time renders empty until hydration replaces it. It also means every
+    page's markup ships statically, which bears on the commented-out route
+    guard recorded below: static HTML cannot be auth-gated.
+- Scope: open, and an operator decision about how the product ships. The
+  measurement above is evidence for that decision, not the decision.
+
+## 2026-10-30 - Rust formatting cannot be checked crate-wide (open)
+
+- What is wrong: 36 files under `src-tauri/src/` are not rustfmt-clean.
+  `cargo fmt --check` therefore fails on the crate, and `cargo fmt` rewrites
+  all 36.
+- Effect: the `Rust Bridge (lib)` job in `ci.yml` checks formatting with
+  `rustfmt --check` over explicit paths rather than `cargo fmt --check`.
+  `cargo fmt` follows `mod` declarations and so reaches those files; `rustfmt`
+  on explicit paths does not. The checked paths are the whole library target,
+  because `src/lib.rs` declares only `pub mod neuronforge`.
+- Consequence: formatting in the binary crate's modules stays unchecked.
+- Fix: run `cargo fmt` over `src-tauri/` as its own change, with no other
+  edits in it, then replace the scoped check with `cargo fmt --all --check`.
+- Scope: open. Kept out of the bridge change deliberately: a 36-file
+  reformatting commit mixed into a boundary change makes both unreviewable.
+
+## 2026-10-30 - No workflow builds or tests Rust (closed for the library)
 
 - What is wrong: `src-tauri/` carries seven Tauri commands, an authority
   module, a governance model, a vault and a repo-truth module. No workflow in
@@ -17,8 +94,18 @@
   the readiness state machine, the refusal taxonomy and the permission rules in
   TypeScript, where they are tested, and leaves the transport to a slice that
   can add Rust CI alongside it.
-- Scope: open. A Rust job needs the system libraries installed in the runner,
-  which is a CI change rather than a code change.
+- Fix: `ci.yml` now runs a `Rust Bridge (lib)` job — `rustfmt --check`,
+  `cargo clippy --lib -- -D warnings`, `cargo test --lib` — with
+  `libwebkit2gtk-4.1-dev` and `libgtk-3-dev` installed in the runner. Those
+  two packages are what the library's build scripts actually ask to link
+  against; librsvg and appindicator are bundler and tray dependencies and
+  neither feature is enabled. The job is blocking through `All Tests Passed`.
+- Scope: closed for the library target, which is the local inference bridge.
+  Still open for everything else under `src-tauri/src/`: the seven Tauri
+  commands, the authority module, the governance model, the vault and
+  repo-truth modules all live in the binary crate, which cannot be compiled at
+  all — see the `frontendDist` entry above. Covering them depends on that
+  being settled first, not on more CI.
 
 ## 2026-10-02 - `verify:repo-context` fails on a clean checkout (open)
 
@@ -393,8 +480,15 @@
 - This also bounds the E2E lane question above. The service-dependent specs
   cannot run against a local inference service, because the application has no
   setting that names one.
-- Scope: open. Adding a local lane is an architecture decision, not a test
-  fix.
+- Progress: the operator authorized a local lane behind a trusted desktop
+  bridge on 2026-10-30. Slice 1 added the contract, readiness state machine,
+  refusal taxonomy and permission rules in `src/lib/core/neuronforge/`. Slice 2
+  added the Rust transport, the `neuronforge_lane_state` command, the shared
+  wire fixture, and the Rust CI job that verifies them. See
+  `doc/system/40-integrations.md`.
+- Scope: open. The lane reports readiness; it executes nothing. Enabling local
+  model execution is a separate authorization, and the bridge cannot reach a
+  user until the desktop build is fixed — see the `frontendDist` entry.
 
 ## 2026-10-30 - A login response with no token fails silently (open)
 
