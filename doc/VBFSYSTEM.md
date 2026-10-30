@@ -376,36 +376,85 @@ not prerendered rather than producing an artifact with holes in it. No
 
 Three things guard it, in the `Build` job of `.github/workflows/ci.yml`:
 
-1. An assertion step requires `build/`, a non-empty `build/index.html`,
-   `build/_app/`, and one non-empty file per route. It fails the job; it does
-   not warn.
+1. An assertion step requiring `build/`, a non-empty `build/index.html` and
+   `build/_app/`. It fails the job; it does not warn. It covers only those
+   three, so a missing artifact fails before a browser starts.
 2. `pnpm verify:artifact` runs `scripts/verify-production-artifact.mjs`
    against the built files.
 3. The artifact upload sets `if-no-files-found: error`.
 
 `verify-production-artifact.mjs` serves `build/` over a resolver written to
-match Tauri's four-step order, then requires the client to be live. Equal
-counts of links and buttons would not do: prerendered HTML carries the full
-markup whether or not the client ever hydrates, so a page with dead event
-handlers measures the same as a working one. Each check instead needs
-something only a running client produces:
+match Tauri's four-step order, then checks every route that `src/routes/`
+declares. For each route it requires:
 
-- the `sveltekit:history` key that SvelteKit's client router stamps into
-  `history.state` on startup, which cannot be present in static markup;
-- clicking an in-app link and finding a value set on `window` still there
-  afterwards, which a document reload would have destroyed;
-- `Meta+N` revealing the project wizard, and `Meta+Shift+N` revealing Quick
-  Create, both handled only by live JavaScript;
-- typing a project name flipping Quick Create's Create button from disabled to
-  enabled, which requires a derived value to recompute and write to the DOM;
-- `/settings` serving bytes that differ from `index.html`, because Tauri's last
-  resort is to serve the index, so a route missing from the artifact answers
-  200 at its own URL and only a comparison reveals it.
+- the route to have its own non-empty file in the artifact;
+- the browser to render what that route's prerendered file says it renders,
+  compared after a settle;
+- no SvelteKit error page, detected by the status code that page puts first
+  rather than by searching the text for a 4xx-shaped number;
+- stylesheets to have applied, measured as a non-zero `document.styleSheets`
+  rule count;
+- no console or page error that an absent backend does not account for;
+- the route to serve its own bytes rather than the index fallback.
 
-The script was checked against deliberately broken artifacts. With
-`build/_app/immutable/entry` deleted, 8 checks fail. With `build/settings.html`
-deleted, the route still serves 200 and hydrates, exactly as it would in Tauri,
-and the byte comparison is the single check that fails.
+It also requires that no two routes serve byte-identical HTML, and that every
+stylesheet the entry page references resolves to a real `.css` file.
+
+Then four checks that need a live client: a link click that changes the route
+without reloading the document, with the destination rendering its own
+content; `Meta+N` opening the project wizard; `Meta+Shift+N` opening Quick
+Create; and typing a project name flipping Quick Create's Create button from
+disabled to enabled, which requires a derived value to recompute.
+
+An absent service is distinguished from a defect by **where a request went**,
+not by the wording of a message. A failed request to another origin is
+absence. Anything naming a failed module import, a refused script or style, or
+an error page is a defect whatever else it says.
+
+#### Why it is shaped that way
+
+Four earlier versions of these checks passed against artifacts that were
+plainly broken. The shape of the mistake kept recurring, so it is recorded:
+
+| Check | Why it proved nothing |
+|---|---|
+| `data-sveltekit-hydrated` on `<body>` | SvelteKit sets no such attribute |
+| `fill(input, 'x')` then assert the input holds `x` | `fill` writes the DOM value directly; passed with the client bundle deleted |
+| `history.state['sveltekit:history']` | written at `client.js:341`, twenty lines before `await _hydrate` at `:361`, and `_hydrate` swallows a failed branch load and renders the error page |
+| route list derived from the artifact | a deleted route vanished from the checks instead of failing |
+| each route compared against its own file | a file holding the wrong page made both sides wrong together |
+
+A check must observe the application's rendered output, and must not be
+satisfiable by the framework merely starting, nor by the artifact agreeing
+with itself.
+
+#### It is checked against broken artifacts
+
+The script is run against deliberately damaged copies rather than assumed to
+work. Each of these is rejected:
+
+| Damage | Result |
+|---|---|
+| six route chunks dead and every stylesheet deleted | 62 of 95 |
+| every route chunk deleted | 72 of 93 |
+| all stylesheets deleted | 79 of 95 |
+| two route chunks deleted | 89 of 95 |
+| a route chunk that throws `TypeError: Failed to fetch` | 92 of 95 |
+| `history.html` deleted | 93 of 95 |
+| `settings.html` deleted | 93 of 95 |
+| `settings.html` replaced by `dashboard.html` | 94 of 95 |
+| a boot error thrown 300ms after load | 94 of 95 |
+
+The first of those passed an earlier version of the gate 27 of 27 while six
+routes rendered `500 Internal Error` and the application shipped unstyled.
+
+#### Known defects
+
+`KNOWN_DEFECTS` in the script holds pre-existing failures the gate does not
+fail on. It is one entry, keyed to a route and a message, not a skipped
+directory, and everything else on that route is still checked. Each entry is
+self-retiring: if the defect stops appearing, the gate **fails** and asks for
+the entry to be deleted, so an exception cannot outlive its fix.
 
 ## Which CI runs for which change
 

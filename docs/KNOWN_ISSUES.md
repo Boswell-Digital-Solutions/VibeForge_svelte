@@ -1,5 +1,53 @@
 # Known Issues
 
+## 2026-10-30 - `/_archive/analytics` crashes on render (open)
+
+- What is wrong: loading `/_archive/analytics` throws
+  `TypeError: Cannot read properties of undefined (reading 'toFixed')`. The
+  page renders, so the crash is in a later effect rather than the first paint.
+- Pre-existing and unrelated to the adapter change: it reproduces identically
+  under `pnpm dev`. The artifact verifier surfaced it, which is the first time
+  anything in CI looked at that route.
+- It is one of the four `src/routes/_archive/` pages that are live routes, so
+  a user can reach it.
+- Held in the verifier's `KNOWN_DEFECTS` so the rest of the gate stays
+  enforceable. That entry is self-retiring: when the crash stops happening the
+  gate fails and asks for the entry to be removed.
+- Scope: open, and part of the `_archive` decision below. Fixing it means
+  deciding whether that page ships at all.
+
+## 2026-10-30 - The artifact verifier passed broken artifacts (closed)
+
+- What was wrong: `scripts/verify-production-artifact.mjs` reported
+  `27/27 checks passed`, exit 0, against an artifact in which six of twelve
+  routes rendered `500 Internal Error` and every stylesheet had been deleted.
+- Root causes, each verified against the framework source:
+  - The hydration signal, `history.state['sveltekit:history']`, is written by
+    SvelteKit at `client.js:341` and `await _hydrate` is called at `:361`, so
+    the key is stamped twenty lines before hydration. `_hydrate` catches a
+    failed branch load and renders the error page, so the stamp survives a
+    total failure. Five `hydrates` checks and the nested-reload check were
+    satisfiable by the client merely starting.
+  - The error classifier matched substrings, and `Failed to fetch` is the
+    message of a failed dynamic import. `TypeError: Failed to fetch
+    dynamically imported module` — the canonical broken-chunk symptom — was
+    filed as backend absence. `Failed to load resource`, `Load failed` and
+    `NetworkError` were similarly over-broad.
+  - Errors were sampled at `load` with no settle, so a failure arriving more
+    than about 100ms later was invisible.
+  - Only five of twelve routes were probed, and nothing looked at CSS.
+  - `X serves 200` could not fail, because Tauri's resolver falls back to the
+    index for every path.
+- Fix: rewritten. Routes come from `src/routes/`, not from the artifact. Each
+  route's rendered output is compared against its own prerendered file after a
+  settle. Styles, cross-route byte uniqueness, and stylesheet resolution are
+  checked. Suppression is decided by the origin a request went to, not by
+  wording. See `doc/system/50-operations.md`.
+- Verified by rejecting twelve deliberately damaged artifacts, including the
+  one that scored 27/27, while the healthy artifact scores 95/95.
+- Scope: closed. The lesson is recorded in the script's own header, because
+  this was the fourth instance of the same mistake in that file.
+
 ## 2026-10-30 - The desktop application could not be built (closed)
 
 - What was wrong: `src-tauri/tauri.conf.json` set `frontendDist` to

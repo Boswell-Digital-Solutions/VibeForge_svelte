@@ -174,27 +174,32 @@ jobs:
       # then could not be compiled, because `frontendDist` names `../build`.
       # These assertions exist so that failure can never be silent again.
       - name: Assert the production artifact exists
+        # Deliberately only the three things needed to run the verifier at all,
+        # so a missing artifact fails before a browser is launched with a clear
+        # message. Per-route coverage is NOT here: an earlier version listed 12
+        # route basenames, which caught a renamed route but silently ignored an
+        # added one. The verifier reads src/routes/ instead, so the route list
+        # cannot drift away from the source.
         run: |
           set -euo pipefail
           test -d build || { echo "::error::build/ was not produced"; exit 1; }
           test -s build/index.html || { echo "::error::build/index.html is missing or empty"; exit 1; }
           test -d build/_app || { echo "::error::build/_app/ is missing, so nothing can hydrate"; exit 1; }
-          # Every route must be prerendered to its own file. adapter-static's
-          # own strict check already fails the build if one is not, so a route
-          # missing here means the route list changed without this list.
-          for route in index dashboard settings login history analytics teams workspaces contexts evals patterns refactoring; do
-            test -s "build/$route.html" || { echo "::error::build/$route.html is missing or empty"; exit 1; }
-          done
           echo "artifact: $(find build -type f | wc -l) files, $(du -sh build | cut -f1)"
 
       - name: Install Playwright chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      # Drives the built files over a resolver that behaves like Tauri's, and
-      # requires the client to be live: a route change with no document
-      # reload, a keyboard shortcut opening the wizard, and typing flipping a
-      # derived value. Counting elements would pass against an artifact whose
-      # client bundle is missing; these do not.
+      # Drives the built files over a resolver that behaves like Tauri's. For
+      # every route declared in src/routes/ it requires the browser to render
+      # what that route's prerendered file says it renders, with styles
+      # applied and no unexplained console error, and then requires a live
+      # client: a route change with no document reload, a keyboard shortcut
+      # opening the wizard, and typing flipping a derived value.
+      #
+      # It is checked against deliberately broken artifacts, not assumed to
+      # work. See doc/system/50-operations.md for the list and what each one
+      # breaks.
       - name: Verify the production artifact
         run: pnpm verify:artifact
 
