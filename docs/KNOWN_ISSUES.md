@@ -142,24 +142,129 @@
   is a dead-code sweep, not a route retirement, and belongs in its own change.
 - Scope: closed.
 
-## 2026-10-30 - Components orphaned by the route retirement (open)
+## 2026-10-30 - Components orphaned by the route retirement (closed)
 
-- What is wrong: retiring the four `_archive` routes left their component
-  trees imported by nothing live. `src/lib/components/quickrun/`
-  (`QuickRunForm`, `QuickRunHeader`, `QuickRunOutputs`) and
-  `src/lib/components/dev-environment/DevEnvironmentPanel.svelte` were
-  imported only by retired pages. Parts of
-  `src/lib/components/presets/` and `src/lib/components/analytics/` are in the
-  same position; those two need checking per-file, because some of their
-  components are also used by live routes.
+- What was wrong: retiring the four `_archive` routes left their component
+  trees imported by nothing live.
+- Fix: 24 files deleted, 5,864 lines, no edits to surviving code. Nothing was
+  identified by name. The import graph of `src/`, `tests/`, `scripts/` and
+  `tools/` was resolved from the live route tree and the test entry points,
+  and only files outside the reachable set were removed. The deleted set is
+  closed under imports: every importer of a deleted file is either under
+  `src/archive/` or itself deleted.
+
+  Orphaned by this retirement (17):
+
+  - `src/lib/components/quickrun/` — `QuickRunForm`, `QuickRunHeader`,
+    `QuickRunOutputs`
+  - `src/lib/components/presets/` — `PresetDetailPanel`, `PresetsDrawer`,
+    `PresetsHeader`, `PresetsList`, `SavePresetModal`. All five went: the
+    retired pages imported `PresetsDrawer`, and `PresetsDrawer` was the only
+    importer of `PresetDetailPanel`, `PresetsHeader` and `PresetsList`.
+  - `src/lib/components/analytics/` — `BudgetTracker`, `CostAnalytics`,
+    `ModelUsageStats`, `PerformanceComparison`. All four went; no live route
+    imported any of them.
+  - `src/lib/components/dev-environment/` — the whole directory.
+    `DevEnvironmentPanel` was imported only by the retired page and was the
+    only importer of `RuntimeStatusTable`. `ToolchainsConfig` was already
+    dead before the retirement — nothing imported it, not even a retired
+    page — and was removed with the rest of the directory rather than left
+    behind as a lone stale file.
+  - `src/lib/components/StatusBar.svelte` — imported only by the retired
+    Quick Run page. See "kept" below: this was not the live StatusBar.
+  - `src/lib/api/runtimeClient.ts` — imported only by the three
+    `dev-environment/` components.
+
+  Orphaned by the older `src/archive/demo-*` archive, swept in the same pass
+  on the operator's decision (7): `src/lib/api/vibeforgeClient.ts`,
+  `src/lib/core/api/chainClient.ts`, `src/lib/core/api/deploymentClient.ts`,
+  `src/lib/stores/learning.ts`, `src/lib/types/learning.ts`,
+  `src/lib/workbench/collaboration/Comments.svelte`,
+  `src/lib/workbench/collaboration/ShareDialog.svelte`.
+
+- Kept, and why:
+
+  - `src/lib/stores/presets.ts` — live. `src/routes/+layout.svelte` imports
+    it, as do `workbench/prompt/PromptEditor.svelte`,
+    `workbench/prompts/PromptSelector.svelte` and
+    `workbench/versions/VersionHistory.svelte`.
+  - `src/lib/services/modelRouter.ts` — live. Imported by
+    `src/lib/workbench/planning/index.ts` and
+    `src/lib/components/settings/ModelRoutingSettingsSection.svelte`.
+  - `src/lib/ui/layout/StatusBar.svelte` — live, rendered by the root layout
+    through the `$lib/ui/layout` barrel. The repository held **two**
+    StatusBars; only the unused `components/` copy was deleted.
+  - `src/lib/components/dev/` — six files whose names match the deleted
+    `dev-environment/` ones (`DevEnvironmentPanel`, `RuntimeStatusTable`,
+    `ToolchainsConfig` among them). A separate directory, out of scope here;
+    it is dead for its own reasons and is recorded in the entry below.
+  - `src/lib/core/api/vibeforgeClient.ts` — a different file from the deleted
+    `src/lib/api/vibeforgeClient.ts`. Out of scope, recorded below.
+
+- A name-based search would have got three of these wrong. `grep -rl
+  "StatusBar" src/lib src/routes` reports hits for the live
+  `ui/layout` copy and would have kept the dead one; the same collision
+  exists for `vibeforgeClient.ts` and for every file in `components/dev/`.
+  Reachability was resolved through import specifiers for that reason.
+
+- The retired pages now hold imports that do not resolve. That costs nothing,
+  and no configuration change was needed to make it cost nothing:
+  `tsconfig.json` has excluded `**/archive/**` since before the retirement
+  (commit `9e1f008`), so `svelte-check` has never read those pages. Verified
+  rather than assumed — a type error planted in
+  `src/archive/retired-routes/presets/+page.svelte` is not reported, while
+  the identical error planted in `src/routes/settings/+page.svelte` is.
+  Reviving a retired page therefore means reverting this deletion with it,
+  which the history supports: these are deletions, not rewrites.
+
+- Decision: the operator chose the full sweep over keeping the retired pages'
+  imports resolving. Keeping them resolving would have deleted nothing at
+  all, because every file the retirement orphaned is reachable from one of
+  the four retired pages.
+
+- Verification: `pnpm run check` 0 errors. Warnings fell 256 to 225 and
+  checked files 76 to 67; the entire drop is attributable to nine deleted
+  files that carried warnings, and no surviving file gained one — the
+  before/after per-file warning sets differ only by those nine.
+  `pnpm test:run` 1434 passed, 1 skipped, unchanged. `pnpm build` 12 routes.
+  `pnpm verify:artifact` 76/76 checks passed.
+
+## 2026-10-30 - Dead code unrelated to the route retirement (open)
+
+- What is wrong: resolving the import graph for the sweep above surfaced 107
+  further files under `src/` that nothing reaches — not a live route, not a
+  test, not even an archived page. They are unrelated to the route
+  retirement and were left alone.
+- Examples, not a complete list: `src/lib/components/dev/` (six files),
+  `src/lib/components/ML/`, `src/lib/components/marketplace/`,
+  `src/lib/components/sync/`, `src/lib/components/runs/`,
+  `src/lib/core/api/vibeforgeClient.ts`, and a group of stores
+  (`themeStore.ts`, `promptStore.ts`, `contextStore.ts`, `runStore.ts`)
+  superseded by `src/lib/core/stores`.
+- The count is a starting point, not a verified list. The sweep above showed
+  two traps that a per-file check has to clear first: several of these names
+  also exist on live files in sibling directories, and some files are reached
+  by configuration rather than by import — `src/tests/setup.ts` is named in
+  `vitest.config.ts` and is reachable from no import at all. Each candidate
+  needs the same per-file treatment before deletion.
 - Effect: dead code that still type-checks and still appears in search
-  results, so a future reader may take it for a live surface. It is not
-  shipped — Vite only bundles what is reachable from a route — so there is no
-  artifact or runtime cost.
-- Scope: open. A dead-code sweep, deliberately not folded into the route
-  retirement: mixing a deletion of component trees into that change would
-  have made both harder to review, and the per-file check for `presets/` and
-  `analytics/` is real work rather than a mechanical delete.
+  results, so a reader may take it for a live surface. Not shipped — Vite
+  bundles only what a route reaches — so there is no artifact or runtime cost.
+- Scope: open, and deliberately not folded into the sweep above, which was
+  scoped to what the route retirement orphaned.
+
+## 2026-10-30 - `docs/ARCHITECTURE.md` describes retired surfaces (open)
+
+- What is wrong: the directory tree in `docs/ARCHITECTURE.md` still lists
+  `routes/presets/` and `routes/quick-run/`, retired by the `_archive`
+  change, and names four stores that nothing imports (see the entry above).
+- The dead-code sweep removed only the five lines naming files it deleted
+  (`components/presets/`, `components/quickrun/`, `StatusBar.svelte`,
+  `PresetsDrawer.svelte`, `SavePresetModal.svelte`), so that no line pointed
+  at a file the same commit removed. The rest of the file's drift predates
+  that change and was left alone rather than folded into a deletion.
+- `doc/system/` is unaffected: it does not name any of these components, so
+  no canonical system document changed and no rebuild was needed.
 
 ## 2026-10-30 - Rust formatting cannot be checked crate-wide (open)
 
