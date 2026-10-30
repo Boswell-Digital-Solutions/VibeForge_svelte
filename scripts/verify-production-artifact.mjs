@@ -51,6 +51,8 @@ import { chromium } from '@playwright/test';
 const BUILD_DIR = resolve(process.argv[2] ?? 'build');
 /** The source of truth for which routes must exist. */
 const ROUTES_DIR = resolve('src/routes');
+/** Code templates for a scaffolded project, not routes of this application. */
+const SCAFFOLDING_TEMPLATES = join('src', 'lib', 'data', 'architecture-patterns');
 
 /** How long to let a route settle before judging it. */
 const SETTLE_MS = 2000;
@@ -185,6 +187,79 @@ function declaredRoutes(dir = ROUTES_DIR, prefix = '') {
 }
 
 /**
+ * In-app navigation targets in the source that name no declared route.
+ *
+ * Reads `goto("/...")` calls and literal `href="/..."` attributes under
+ * `src/lib` and `src/routes`.
+ *
+ * Two exclusions, both because the paths in them are not this application's
+ * navigation:
+ *
+ * - `src/archive/` is retired code outside the route tree, so nothing can
+ *   navigate to it (it is not walked at all, being outside the two roots).
+ * - `src/lib/data/architecture-patterns/` holds scaffolding templates: the
+ *   source files VibeForge writes into a user's NEW project. Their `/about`
+ *   and `/blog` links belong to that generated project's route tree, not to
+ *   this one.
+ *
+ * A literal-only scan, which is the honest limit: a computed target
+ * (`goto(someVariable)`) is invisible here, and a target built at runtime
+ * cannot be checked without running the code. It catches the class of
+ * mistake that actually occurred.
+ */
+function danglingTargets(routes) {
+	const found = [];
+	const walk = (dir) => {
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			const full = join(dir, entry.name);
+			if (entry.isDirectory()) {
+				walk(full);
+				continue;
+			}
+			if (!/\.(svelte|ts)$/.test(entry.name)) continue;
+			if (full.includes(SCAFFOLDING_TEMPLATES)) continue;
+			const source = readFileSync(full, 'utf8');
+			const where = relative(process.cwd(), full).replace(/\\/g, '/');
+			const targets = [
+				...[...source.matchAll(/goto\(\s*["'`](\/[^"'`]*)["'`]/g)].map((m) => m[1]),
+				...[...source.matchAll(/href=["'](\/[^"']*)["']/g)].map((m) => m[1]),
+				// The object-property form, `href: '/contexts'`, which
+				// LeftRailNav uses for the main navigation and renders as
+				// `href={item.href}`. Matching only the literal attribute
+				// missed every rail item, which is where a dangling target
+				// matters most: a typo there went undetected.
+				...[...source.matchAll(/\bhref:\s*["'`](\/[^"'`]*)["'`]/g)].map((m) => m[1])
+			];
+			for (const raw of targets) {
+				// Strip a query or fragment; `/` with either is still `/`.
+				const target = raw.split(/[?#]/)[0] || '/';
+				// A static asset is not a route. Those are served from
+				// `static/`, so check the artifact for them instead.
+				if (/\.[a-z0-9]+$/i.test(target)) {
+					if (!resolveAsset(target) || resolveAsset(target).endsWith('index.html')) {
+						found.push({ target, where, kind: 'asset' });
+					}
+					continue;
+				}
+				if (!routes.includes(target)) found.push({ target, where, kind: 'route' });
+			}
+		}
+	};
+	for (const root of ['src/lib', 'src/routes']) {
+		const dir = resolve(root);
+		if (existsSync(dir)) walk(dir);
+	}
+	// One line per distinct target, so a target used in ten places reports once.
+	const seen = new Set();
+	return found.filter((item) => {
+		const key = `${item.target}|${item.where}`;
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+}
+
+/**
  * The text the prerendered file says this route renders.
  *
  * Taken from `<main>` where there is one, and from `<body>` otherwise, since
@@ -232,16 +307,19 @@ function stripTags(fragment) {
  * Deliberately one entry, keyed to a route and a message, not a blanket skip
  * of a directory. Everything else on these routes is still checked.
  *
- * Each entry is self-retiring: if the defect stops appearing, the gate FAILS
- * and tells you to delete the entry. An exception that outlives its fix is how
- * a gate rots, so this one cannot.
+ * Each entry is self-retiring in two ways: if the defect stops appearing, the
+ * gate FAILS and tells you to delete the entry; and if the entry names a route
+ * that no longer exists, the gate FAILS too. The second was added after
+ * retiring the _archive routes left an entry pointing at a route the per-route
+ * loop no longer visits, so nothing would have run its check and the entry
+ * would have sat here unused. An exception that outlives its fix is how a gate
+ * rots, so neither way is left open.
  */
 const KNOWN_DEFECTS = [
-	{
-		route: '/_archive/analytics',
-		match: "Cannot read properties of undefined (reading 'toFixed')",
-		why: 'pre-existing, reproduces identically under pnpm dev; see docs/KNOWN_ISSUES.md'
-	}
+	// Empty, and that is the goal. The one entry this list ever held was for
+	// /_archive/analytics, which was retired out of the route tree, so the
+	// defect is no longer reachable and the entry was removed. The checks above
+	// fail if an entry stops being needed or names a route that is gone.
 ];
 
 const results = [];
@@ -323,6 +401,36 @@ async function main() {
 
 	const routes = declaredRoutes();
 	record('src/routes declares routes to check', routes.length > 0, `${routes.length} declared`);
+
+	// Every in-app navigation target in the source must resolve to a declared
+	// route.
+	//
+	// This exists because `TopBar.svelte` called `goto("/quick-run")` for a
+	// route that did not exist, and nothing caught it. The prerenderer crawls
+	// rendered HTML, so it would have failed the build on a dangling `<a
+	// href>`, but it cannot see a target inside an `onclick`. In the shipped
+	// artifact Tauri's index fallback answered 200, so the click did a full
+	// document load and rendered the Workbench at a URL that matched neither
+	// the page nor the nav rail, with no error anywhere.
+	const dangling = danglingTargets(routes);
+	record(
+		'every goto() and href target in src/ resolves to a declared route',
+		dangling.length === 0,
+		dangling.length
+			? dangling.map((d) => `${d.target} (${d.where})`).join(', ')
+			: 'all in-app navigation targets resolve'
+	);
+
+	// An entry for a route that is gone can never be exercised, so it would
+	// widen the gate silently.
+	const orphanedDefects = KNOWN_DEFECTS.filter((defect) => !routes.includes(defect.route));
+	record(
+		'every KNOWN_DEFECTS entry names a route that still exists',
+		orphanedDefects.length === 0,
+		orphanedDefects.length
+			? `stale, remove from KNOWN_DEFECTS: ${orphanedDefects.map((d) => d.route).join(', ')}`
+			: `${KNOWN_DEFECTS.length} entr${KNOWN_DEFECTS.length === 1 ? 'y' : 'ies'}`
+	);
 	// A declared route with no file of its own would be served the index by
 	// Tauri's fallback, so this is checked here and not inferred from a status.
 	const absent = routes.filter((route) => {
@@ -651,7 +759,7 @@ async function main() {
 
 	// A skipped block must not shrink the denominator silently. Six checks per
 	// route plus the five shape checks and eight interaction checks.
-	const expectedFloor = 7 + routes.length * 5 + KNOWN_DEFECTS.length;
+	const expectedFloor = 9 + routes.length * 5 + KNOWN_DEFECTS.length;
 	const failed = results.filter((result) => !result.ok);
 	console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 	if (results.length < expectedFloor) {

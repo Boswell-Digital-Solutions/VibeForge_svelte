@@ -1,20 +1,24 @@
 # Known Issues
 
-## 2026-10-30 - `/_archive/analytics` crashes on render (open)
+## 2026-10-30 - `/_archive/analytics` crashed on render (closed)
 
-- What is wrong: loading `/_archive/analytics` throws
-  `TypeError: Cannot read properties of undefined (reading 'toFixed')`. The
-  page renders, so the crash is in a later effect rather than the first paint.
-- Pre-existing and unrelated to the adapter change: it reproduces identically
-  under `pnpm dev`. The artifact verifier surfaced it, which is the first time
-  anything in CI looked at that route.
-- It is one of the four `src/routes/_archive/` pages that are live routes, so
-  a user can reach it.
-- Held in the verifier's `KNOWN_DEFECTS` so the rest of the gate stays
-  enforceable. That entry is self-retiring: when the crash stops happening the
-  gate fails and asks for the entry to be removed.
-- Scope: open, and part of the `_archive` decision below. Fixing it means
-  deciding whether that page ships at all.
+- What was wrong: loading `/_archive/analytics` threw
+  `TypeError: Cannot read properties of undefined (reading 'toFixed')`. It
+  reproduced identically under `pnpm dev`, so it was pre-existing and
+  unrelated to the adapter change. The artifact verifier surfaced it, which
+  was the first time anything in CI looked at that route.
+- Fix: the route was retired with the rest of `_archive`, so the page is no
+  longer reachable and the crash is no longer live. The verifier's
+  `KNOWN_DEFECTS` entry for it was removed.
+- The crash itself is **not fixed**: the code now sits in
+  `src/archive/retired-routes/analytics/`, and anyone reviving that page will
+  meet it again. It is recorded here for that reason.
+- The removal was not silent. The verifier gained a check that every
+  `KNOWN_DEFECTS` entry names a route that still exists, precisely because
+  retiring the route stopped the per-route loop from visiting it, so the
+  original self-retiring check could never have fired and the entry would have
+  widened the gate unnoticed.
+- Scope: closed as unreachable; the underlying defect is recorded above.
 
 ## 2026-10-30 - The artifact verifier passed broken artifacts (closed)
 
@@ -80,67 +84,82 @@
   `_archive` routes, and the commented-out route guard, which prerendering
   makes more pointed because static HTML cannot be auth-gated.
 
-## 2026-10-30 - The Quick Run button navigates to a route that does not exist (open)
+## 2026-10-30 - The Quick Run button navigated to a route that did not exist (closed)
 
-- What is wrong: `src/lib/ui/layout/TopBar.svelte:105` calls
-  `goto("/quick-run")`. There is no `/quick-run` route. The only page with that
-  name is `src/routes/_archive/quick-run/+page.svelte`, whose route id is
-  `/_archive/quick-run`. TopBar renders on every route except `/login`
-  (`src/routes/+layout.svelte:400`), so the button is on screen on 11 of the 12
-  live pages.
-- The dangling target is pre-existing. The adapter change alters what happens
-  when it is clicked, so it is recorded here rather than left implicit.
-- Measured, twice each, by clicking the real button:
-  - Under `pnpm dev`: nothing happens. No document request, no navigation, the
-    URL stays `/`, the rail still highlights Workbench, and a value set on
-    `window` survives. The click is a silent no-op. (`curl` does get a 404 for
-    `/quick-run` from the dev server, but the browser never requests it:
-    SvelteKit resolves the unmatched route client-side and stops.)
-  - Against the built artifact, served over a resolver matching Tauri's
-    four-step order: a full document load, `200 /quick-run`, the URL left at
-    `/quick-run`, the Workbench rendered, **no** nav item highlighted, and the
-    `window` value gone. No error, no 404 text.
-- Why 200: Tauri's last resort is to serve `index.html`
-  (`tauri-2.9.3/src/manager/mod.rs`, `AppManager::get_asset`), so an unmatched
-  path gets the entry page with a success status. The served document carries
-  the root layout and `/` page, while the client recomputes route identity from
-  the address bar, which is why the URL and the rail disagree with the page.
-- Consequence: a full reload discards in-memory `$state`. Any unsaved work in a
-  client-only store is lost. `src/lib/core/stores/prompt.svelte.ts` persists
-  nothing. The reload is proven; the specific prompt-editor loss was not
-  reproduced, because no editor was present on `/` for the probe to fill.
-- Not a general problem with navigation. Every other target resolves: the seven
-  `LeftRailNav` items, `/settings` and `/login`. `href="/docs"` appears only in
-  `src/archive/demo-routes/`, which is outside `src/routes/` and so is dead
-  code, never a page.
-- Why no check caught it: the prerenderer crawls rendered HTML, so it would
-  have failed the build on a dangling `<a href>` — but it cannot see a `goto()`
-  inside an `onclick`. `scripts/verify-production-artifact.mjs` clicks an
-  anchor, not a `<Button>`. The CI route list asserts files that should exist,
-  and `/quick-run` is a file that should not.
-- Fix: an operator decision, because it is the same question as the `_archive`
-  entry below. Either Quick Run is a live feature, and the target should be a
-  real route, or it is retired, and the button should go. A guard belongs with
-  whichever is chosen: a check that every `goto()` and `href` target in `src/`
-  resolves in the artifact would have caught this, and cannot be added while
-  one target does not resolve.
-- Scope: open. Deliberately not fixed in the adapter change, whose authorization
-  was to preserve navigation and to leave the `_archive` question alone.
+- What was wrong: `src/lib/ui/layout/TopBar.svelte` called
+  `goto("/quick-run")`. There was no `/quick-run` route; the only page with
+  that name was `src/routes/_archive/quick-run/`. TopBar renders on every
+  route except `/login`, so the button was on screen on 11 of the 12 live
+  pages.
+- Measured, twice each, by clicking the real button. Under `pnpm dev` nothing
+  happened: no document request, no navigation, the URL stayed `/`, the rail
+  still highlighted Workbench, and a value set on `window` survived — a silent
+  no-op. Against the built artifact it was a full document load, `200
+  /quick-run`, the URL left at `/quick-run`, the Workbench rendered, **no** nav
+  item highlighted, and the `window` value gone. Tauri's resolver falls back to
+  `index.html`, which is why an absent route answered 200.
+- Fix: the operator ruled on 2026-10-30 to remove the button. The retired
+  `quick-run` page was a predecessor of the Workbench — a prompt editor with
+  context and model selection and an outputs pane — and that function is now
+  the default page at `/`, already reachable from the logo and the rail's
+  Workbench item. Repointing the button would have given a third path to the
+  same page under a label that no longer described it.
+- Guarded against recurrence: `scripts/verify-production-artifact.mjs` now
+  requires every `goto()` and `href` target in `src/lib` and `src/routes` to
+  name a declared route. Nothing caught the original, because the prerenderer
+  crawls rendered HTML and so would have failed the build on a dangling `<a
+  href>`, but cannot see a target inside an `onclick`.
+- The guard was checked by reinstating the dangling `goto` (caught, naming the
+  file) and by introducing a typo into a main-navigation `href` (caught). The
+  second found a real gap in the first version of the guard: it matched only
+  the literal `href="..."` attribute form and missed `href: '/contexts'`, the
+  object-property form the main navigation actually uses, so every rail item
+  was unchecked.
+- Scope: closed.
 
-## 2026-10-30 - `src/routes/_archive/` holds four live routes (open)
+## 2026-10-30 - `src/routes/_archive/` held four live routes (closed)
 
-- What is wrong: `src/routes/_archive/` contains `analytics`,
+- What was wrong: `src/routes/_archive/` contained `analytics`,
   `dev-environment`, `presets` and `quick-run` pages. The directory name
-  suggests they are retired, but SvelteKit treats `_archive` as an ordinary
-  route segment, so `/_archive/analytics` and its three siblings are reachable
-  routes. They appear in `.svelte-kit/output` and now prerender to
+  suggested they were retired, but SvelteKit treats `_archive` as an ordinary
+  route segment, so `/_archive/analytics` and its three siblings were
+  reachable routes. They appeared in `.svelte-kit/output` and prerendered to
   `build/_archive/*.html`.
-- Prerendering did not cause this and does not change it. It makes it visible:
-  the four files are listed in the artifact.
-- Scope: open, and an operator decision about the product. Either they are
-  live pages and the directory name is wrong, or they are retired and should
-  be deleted or moved outside `src/routes/`. Not changed as part of the
-  adapter work, which was scoped to exclude them.
+- Fix: the operator ruled on 2026-10-30 that they are retired. The four
+  directories moved to `src/archive/retired-routes/`, which is outside
+  `src/routes/` and therefore not a route tree. That follows the convention
+  `src/archive/demo-routes/` already set, and the move used `git mv` so the
+  history is preserved. The code is still in the repository and still
+  type-checks; it is simply no longer reachable.
+- The artifact now holds 12 routes rather than 16.
+- Follow-on: this also closed the `/_archive/analytics` crash, which is no
+  longer reachable, and let the artifact verifier's `KNOWN_DEFECTS` list go
+  back to empty.
+- Left alone deliberately: `src/lib/components/quickrun/`,
+  `src/lib/components/dev-environment/`, and parts of
+  `src/lib/components/presets/` and `src/lib/components/analytics/` were
+  imported only by the retired pages, so they are now orphaned. Removing them
+  is a dead-code sweep, not a route retirement, and belongs in its own change.
+- Scope: closed.
+
+## 2026-10-30 - Components orphaned by the route retirement (open)
+
+- What is wrong: retiring the four `_archive` routes left their component
+  trees imported by nothing live. `src/lib/components/quickrun/`
+  (`QuickRunForm`, `QuickRunHeader`, `QuickRunOutputs`) and
+  `src/lib/components/dev-environment/DevEnvironmentPanel.svelte` were
+  imported only by retired pages. Parts of
+  `src/lib/components/presets/` and `src/lib/components/analytics/` are in the
+  same position; those two need checking per-file, because some of their
+  components are also used by live routes.
+- Effect: dead code that still type-checks and still appears in search
+  results, so a future reader may take it for a live surface. It is not
+  shipped — Vite only bundles what is reachable from a route — so there is no
+  artifact or runtime cost.
+- Scope: open. A dead-code sweep, deliberately not folded into the route
+  retirement: mixing a deletion of component trees into that change would
+  have made both harder to review, and the per-file check for `presets/` and
+  `analytics/` is real work rather than a mechanical delete.
 
 ## 2026-10-30 - No workflow builds or tests Rust (open)
 

@@ -397,8 +397,18 @@ declares. For each route it requires:
 - no console or page error that an absent backend does not account for;
 - the route to serve its own bytes rather than the index fallback.
 
-It also requires that no two routes serve byte-identical HTML, and that every
-stylesheet the entry page references resolves to a real `.css` file.
+It also requires that no two routes serve byte-identical HTML, that every
+stylesheet the entry page references resolves to a real `.css` file, and that
+every in-app navigation target in `src/lib` and `src/routes` names a declared
+route.
+
+That last one reads `goto("/...")` calls and `href` targets in both their
+literal-attribute and object-property forms, because the main navigation
+declares `href: '/contexts'` and renders it as `href={item.href}`. It skips
+`src/lib/data/architecture-patterns/`, whose paths belong to the project
+VibeForge scaffolds for a user rather than to this application. It is a
+literal scan, so a computed target is invisible to it; that is the honest
+limit, and it catches the class of mistake that occurred.
 
 Then four checks that need a live client: a link click that changes the route
 without reloading the document, with the destination rendering its own
@@ -444,6 +454,8 @@ work. Each of these is rejected:
 | `settings.html` deleted | 93 of 95 |
 | `settings.html` replaced by `dashboard.html` | 94 of 95 |
 | a boot error thrown 300ms after load | 94 of 95 |
+| a `goto()` target that is not a route | rejected, naming the file |
+| a typo in a main-navigation `href` | rejected, naming the file |
 
 The first of those passed an earlier version of the gate 27 of 27 while six
 routes rendered `500 Internal Error` and the application shipped unstyled.
@@ -451,10 +463,17 @@ routes rendered `500 Internal Error` and the application shipped unstyled.
 #### Known defects
 
 `KNOWN_DEFECTS` in the script holds pre-existing failures the gate does not
-fail on. It is one entry, keyed to a route and a message, not a skipped
-directory, and everything else on that route is still checked. Each entry is
-self-retiring: if the defect stops appearing, the gate **fails** and asks for
-the entry to be deleted, so an exception cannot outlive its fix.
+fail on. An entry is keyed to a route and a message, never a skipped
+directory, and everything else on that route is still checked.
+
+Each entry is self-retiring in two ways. If the defect stops appearing, the
+gate **fails** and asks for the entry to be deleted. If the entry names a
+route that no longer exists, the gate **fails** too — added after retiring
+the `_archive` routes left an entry pointing at a route the per-route loop no
+longer visits, where nothing would have run its check and the entry would have
+sat there widening the gate in silence.
+
+The list is currently empty, which is the goal.
 
 ## Which CI runs for which change
 
