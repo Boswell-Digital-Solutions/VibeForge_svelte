@@ -1,0 +1,78 @@
+# Release gate: real authentication must pass before a release.
+#
+# Ordinary pull-request CI is hermetic. It answers the login request in the
+# browser with a synthetic session, so it proves nothing about NeuroForge
+# authentication. This workflow is where that claim is made and enforced.
+#
+# The job is blocking. It fails when the endpoint or the credentials are
+# missing, because `E2E_REAL_AUTH_REQUIRED` is true. A release therefore
+# cannot pass this gate on an unconfigured runner. That is deliberate, not a
+# broken workflow.
+#
+# The four secrets below must name an ISOLATED TEST ACCOUNT on a test
+# NeuroForge deployment. Do not supply production credentials. The spec
+# refuses to run unless the account class is declared `isolated-test`, and it
+# only performs a login and reads local storage.
+#
+# Authorized by the operator ruling on PR #13, conditions 4 and 5.
+
+name: Release Gate
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  real-auth-gate:
+    name: Real authentication gate (blocking)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run the real-authentication gate
+        run: pnpm test:e2e:real-auth
+        env:
+          CI: true
+          # Turns a missing or inconsistent setting into a failure. Without
+          # this the spec would skip, and a release would pass unverified.
+          E2E_REAL_AUTH_REQUIRED: 'true'
+          # The spec refuses any other value. It records that the operator
+          # declared this account an isolated test account.
+          E2E_REAL_AUTH_ACCOUNT_CLASS: 'isolated-test'
+          E2E_REAL_AUTH_URL: ${{ secrets.E2E_REAL_AUTH_URL }}
+          E2E_REAL_AUTH_USERNAME: ${{ secrets.E2E_REAL_AUTH_USERNAME }}
+          E2E_REAL_AUTH_PASSWORD: ${{ secrets.E2E_REAL_AUTH_PASSWORD }}
+          # The application reads VITE_NEUROFORGE_URL. It must match
+          # E2E_REAL_AUTH_URL, or the page talks to the default endpoint while
+          # the gate reports that it tested the configured one. The spec
+          # compares the two and fails on a mismatch.
+          VITE_NEUROFORGE_URL: ${{ secrets.E2E_REAL_AUTH_URL }}
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-gate-real-auth-report
+          path: playwright-report/
+          retention-days: 30

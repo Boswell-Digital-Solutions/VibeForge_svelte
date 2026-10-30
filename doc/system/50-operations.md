@@ -37,3 +37,76 @@ This repo has no secret scanner workflow today.
 Do not add a required status check on a path-filtered workflow.
 When the filter skips the workflow, the required check stays pending and blocks the merge.
 
+## E2E lanes
+
+There are two E2E lanes. They make different claims.
+
+### The hermetic lane
+
+The `setup` project answers the login request in the browser.
+`tests/e2e/support/syntheticSession.ts` holds the synthetic session.
+It mints the token at run time, because `initAuth()` logs out an expired token.
+The chromium, firefox and webkit projects then start from a signed-in page.
+
+This lane does not authenticate.
+No request leaves the browser.
+A green run says nothing about NeuroForge login.
+Do not report it as authentication coverage.
+
+`tests/e2e/auth-negative.spec.ts` covers the failure paths in a real browser.
+It covers a rejected credential, an unparseable success body, a success body
+with no token, and an unreachable endpoint.
+Each case asserts that no session starts.
+
+The application has no bypass.
+`src/lib/auth.ts` always performs a real request.
+All interception lives under `tests/`.
+
+### The real-authentication lane
+
+`tests/e2e-real-auth/real-auth.spec.ts` is the only spec that authenticates.
+It intercepts nothing.
+It asserts that the request reached the configured host.
+It asserts that the token is not a synthetic one.
+
+The lane skips when the settings are absent, so pull-request CI stays hermetic.
+`E2E_REAL_AUTH_REQUIRED=true` turns an absent or inconsistent setting into a
+failure instead.
+
+| Setting | Purpose |
+|---|---|
+| `E2E_REAL_AUTH_URL` | The test NeuroForge endpoint |
+| `E2E_REAL_AUTH_USERNAME` | The isolated test account |
+| `E2E_REAL_AUTH_PASSWORD` | That account's password |
+| `E2E_REAL_AUTH_ACCOUNT_CLASS` | Must be `isolated-test`, or the spec refuses to run |
+| `E2E_REAL_AUTH_REQUIRED` | `true` makes the lane blocking |
+| `VITE_NEUROFORGE_URL` | What the application reads; must equal `E2E_REAL_AUTH_URL` |
+
+The account must be an isolated test account.
+Do not supply production credentials.
+The spec performs a login and reads local storage.
+It writes nothing.
+
+The spec compares `VITE_NEUROFORGE_URL` with `E2E_REAL_AUTH_URL` and fails on a
+mismatch.
+Without that check the page can use the default endpoint while the gate reports
+a real one.
+
+### The release gate
+
+`.github/workflows/release-gate.yml` runs the real-authentication lane.
+It runs on a `v*` tag and on manual dispatch.
+The job is blocking.
+It fails when the settings are absent, so a release cannot pass it unconfigured.
+
+### What the downstream specs need
+
+The 138 specs under `tests/e2e/` beyond the auth files are integration tests.
+They need a local service stack that CI does not run.
+The application requests `ws://localhost:8001/ws`, license validation on
+`http://localhost:8002`, and two MCP servers.
+Each request is refused in CI, so the specs time out on content that never
+renders.
+Authentication is not the cause.
+See `docs/KNOWN_ISSUES.md`.
+

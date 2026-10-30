@@ -80,6 +80,20 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
+
+    // Real authentication against a configured NeuroForge endpoint. Its own
+    // testDir keeps it out of the default run, and it deliberately takes no
+    // synthetic storage state and does not depend on the hermetic setup. It
+    // skips unless E2E_REAL_AUTH_* is configured; the release gate sets
+    // E2E_REAL_AUTH_REQUIRED=true, which makes a missing setting a failure.
+    // Run it with: pnpm test:e2e:real-auth
+    {
+      name: 'real-auth',
+      testDir: './tests/e2e-real-auth',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
   ],
 
   // Run your local dev server before starting the tests

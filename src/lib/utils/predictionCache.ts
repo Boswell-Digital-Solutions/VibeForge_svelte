@@ -6,7 +6,6 @@
  */
 
 import type { SuccessPrediction, PredictSuccessRequest } from '$lib/types/success-prediction';
-import { createHash } from 'crypto';
 
 // ============================================================================
 // Types
@@ -16,7 +15,7 @@ interface CacheKey {
   patternId: string;
   stackId?: string;
   userId?: string;
-  hash: string; // MD5 of metadata
+  hash: string; // simpleHash of the sorted metadata
 }
 
 interface CacheEntry {

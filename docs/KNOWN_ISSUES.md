@@ -85,24 +85,87 @@
 - Scope: closed. Both Tailwind errors are gone; the build now reaches the
   bundling issue recorded above.
 
-## 2026-10-30 - E2E auth setup cannot authenticate in CI (open)
+## 2026-10-30 - E2E auth setup cannot authenticate in CI (closed)
 
-- What is wrong: all three E2E jobs fail in the `setup` project before any test
-  body runs, so `1 failed, 138 did not run`.
-- `tests/e2e/auth.setup.ts:31` submits the login form and waits for a redirect
-  to `/`; the app stays at `http://localhost:5173/login?` and the wait times
-  out after 10s. The suite's `webServer` starts `pnpm dev` only, so there is no
-  auth backend for the login to succeed against, and every browser project
-  declares `dependencies: ['setup']`.
-- Why it surfaced now: these jobs died at `pnpm install` for as long as the
-  pnpm 8 pin stood, so the suite had never run.
-- Scope: open. Making this green is an owner decision on how E2E should
-  authenticate — seed `vibeforge_jwt_token` into `storageState` directly, stand
-  up a stub auth endpoint, or intercept the login route with Playwright's
-  `page.route`. Each changes what the 139 tests actually prove, so none should
-  be picked silently.
+- What was wrong: all three E2E jobs failed in the `setup` project before any
+  test body ran, so `1 failed, 138 did not run`.
+- First diagnosis, and it was wrong: that the login failed because no auth
+  backend runs in CI. It does not reach a backend at all. A probe showed no
+  request leaving the browser, and the navigation to
+  `http://localhost:5173/login?` with an empty query string is a native GET
+  form submit, not a redirect.
+- Root cause: `src/lib/utils/predictionCache.ts` imported `createHash` from
+  `crypto`. Vite externalizes `crypto` for the browser and the proxy throws on
+  property access, which raised a page error, aborted hydration and left the
+  login form inert HTML with no handler attached. The import was dead:
+  `hashMetadata` already calls `this.simpleHash`, which its own comment
+  describes as the browser-compatible alternative. Deleting the import restored
+  hydration, after which the login request fires, the route intercepts it and
+  the page redirects.
+- This is the same defect class as the Build failure above, and it survived the
+  build because Vite only fails the build when it cannot resolve a named
+  import. `crypto` resolved to a throwing proxy instead and failed at runtime.
+- Fix: the hermetic lane, authorized by the operator ruling on PR #13.
+  `tests/e2e/auth.setup.ts` answers the login request with a synthetic session
+  from `tests/e2e/support/syntheticSession.ts`. It asserts the interception
+  happened, so a glob that stopped matching cannot pass against whatever
+  answers on port 8002. `tests/e2e/auth-negative.spec.ts` covers the rejection,
+  unparseable-body, no-token and unreachable paths in all three browsers.
+  `tests/e2e-real-auth/real-auth.spec.ts` is the only spec that authenticates,
+  and `.github/workflows/release-gate.yml` is where it is required.
+- The hermetic lane is not authentication coverage. See
+  `doc/system/50-operations.md`.
 - Fixed alongside this, because it was a plain CI bug: each matrix job ran
   `playwright install --with-deps <browser>`, but the `setup` project declares
   no browser and so runs in chromium. The firefox and webkit jobs therefore
   failed with `Executable doesn't exist at .../chromium_headless_shell-1194`
   before even reaching the login. They now install chromium as well.
+
+## 2026-10-30 - Downstream E2E specs need a local service stack (open)
+
+- What is wrong: with the login blocker gone the 138 specs under `tests/e2e/`
+  run for the first time, and most of them fail on a 30s timeout.
+- Cause: they are integration tests. On load the application requests
+  `ws://localhost:8001/ws`, license validation on `http://localhost:8002`, and
+  the DataForge and NeuroForge MCP servers. CI runs `pnpm dev` only, so every
+  one is refused and the specs wait for content that never renders.
+  Authentication is not involved.
+- Measured locally on chromium, as a sample rather than a full run: 9 passed
+  and 49 failed over the first 58 tests. The passing ones are the auth specs,
+  two settings cases in `cortex-planning.spec.ts`, `debug-shortcuts.spec.ts`,
+  and, aptly, `phase-2.7-dev-environment.spec.ts` "should handle missing
+  backend gracefully".
+- Cost: each failure also burns its two CI retries, so the three E2E jobs now
+  run for hours instead of failing fast in two minutes.
+- Scope: open, and it is an owner decision, not a test fix. The options are to
+  mock each service boundary, to run the stack in CI, or to classify these
+  specs into their own project with their own gate, the way the
+  real-authentication lane now works. Do not resolve it by skipping tests to
+  reach green.
+
+## 2026-10-30 - `.env.example` names a variable the code does not read (open)
+
+- What is wrong: `.env.example` declares
+  `VITE_NEUROFORGE_API_BASE=http://localhost:8002/api/v1`, but
+  `src/lib/auth.ts` reads `VITE_NEUROFORGE_URL` and defaults to
+  `http://localhost:8002`.
+- Effect: anyone who configures the documented variable changes nothing, and
+  the path segment differs as well.
+- Scope: open. Renaming either side is a configuration change, so it needs an
+  owner decision on which name is canonical.
+
+## 2026-10-30 - A login response with no token fails silently (open)
+
+- What is wrong: when the endpoint answers 200 with valid JSON that carries no
+  `access_token`, `login()` in `src/lib/auth.ts` resolves. `token.set(undefined)`
+  clears the stored token, `decodeToken(undefined)` throws internally and
+  returns the `unknown` placeholder user, and that placeholder is persisted to
+  `vibeforge_user`. No error reaches the page and the user stays on `/login`
+  with no feedback.
+- Covered by `tests/e2e/auth-negative.spec.ts`, which asserts only the safety
+  property: no token is stored and the page does not navigate. The test
+  deliberately does not pin the silent behavior, so a fix does not have to
+  change it.
+- Scope: open. A fix means rejecting a response with no `access_token`, which
+  changes production error handling and was outside the authorized scope of
+  PR #13.
