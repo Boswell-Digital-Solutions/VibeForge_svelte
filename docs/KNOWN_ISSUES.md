@@ -32,6 +32,53 @@
   `_archive` routes, and the commented-out route guard, which prerendering
   makes more pointed because static HTML cannot be auth-gated.
 
+## 2026-10-30 - The Quick Run button navigates to a route that does not exist (open)
+
+- What is wrong: `src/lib/ui/layout/TopBar.svelte:105` calls
+  `goto("/quick-run")`. There is no `/quick-run` route. The only page with that
+  name is `src/routes/_archive/quick-run/+page.svelte`, whose route id is
+  `/_archive/quick-run`. TopBar renders on every route except `/login`
+  (`src/routes/+layout.svelte:400`), so the button is on screen on 11 of the 12
+  live pages.
+- The dangling target is pre-existing. The adapter change alters what happens
+  when it is clicked, so it is recorded here rather than left implicit.
+- Measured, twice each, by clicking the real button:
+  - Under `pnpm dev`: nothing happens. No document request, no navigation, the
+    URL stays `/`, the rail still highlights Workbench, and a value set on
+    `window` survives. The click is a silent no-op. (`curl` does get a 404 for
+    `/quick-run` from the dev server, but the browser never requests it:
+    SvelteKit resolves the unmatched route client-side and stops.)
+  - Against the built artifact, served over a resolver matching Tauri's
+    four-step order: a full document load, `200 /quick-run`, the URL left at
+    `/quick-run`, the Workbench rendered, **no** nav item highlighted, and the
+    `window` value gone. No error, no 404 text.
+- Why 200: Tauri's last resort is to serve `index.html`
+  (`tauri-2.9.3/src/manager/mod.rs`, `AppManager::get_asset`), so an unmatched
+  path gets the entry page with a success status. The served document carries
+  the root layout and `/` page, while the client recomputes route identity from
+  the address bar, which is why the URL and the rail disagree with the page.
+- Consequence: a full reload discards in-memory `$state`. Any unsaved work in a
+  client-only store is lost. `src/lib/core/stores/prompt.svelte.ts` persists
+  nothing. The reload is proven; the specific prompt-editor loss was not
+  reproduced, because no editor was present on `/` for the probe to fill.
+- Not a general problem with navigation. Every other target resolves: the seven
+  `LeftRailNav` items, `/settings` and `/login`. `href="/docs"` appears only in
+  `src/archive/demo-routes/`, which is outside `src/routes/` and so is dead
+  code, never a page.
+- Why no check caught it: the prerenderer crawls rendered HTML, so it would
+  have failed the build on a dangling `<a href>` — but it cannot see a `goto()`
+  inside an `onclick`. `scripts/verify-production-artifact.mjs` clicks an
+  anchor, not a `<Button>`. The CI route list asserts files that should exist,
+  and `/quick-run` is a file that should not.
+- Fix: an operator decision, because it is the same question as the `_archive`
+  entry below. Either Quick Run is a live feature, and the target should be a
+  real route, or it is retired, and the button should go. A guard belongs with
+  whichever is chosen: a check that every `goto()` and `href` target in `src/`
+  resolves in the artifact would have caught this, and cannot be added while
+  one target does not resolve.
+- Scope: open. Deliberately not fixed in the adapter change, whose authorization
+  was to preserve navigation and to leave the `_archive` question alone.
+
 ## 2026-10-30 - `src/routes/_archive/` holds four live routes (open)
 
 - What is wrong: `src/routes/_archive/` contains `analytics`,
