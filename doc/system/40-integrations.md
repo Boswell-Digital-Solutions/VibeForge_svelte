@@ -10,14 +10,19 @@ One variable configures one service. `src/lib/core/api/endpoints.ts` is the only
 place that reads an endpoint variable. Every other module imports a constant
 from it.
 
-| Variable | Default | Service |
-|---|---|---|
-| `VITE_NEUROFORGE_URL` | `http://localhost:8000` | NeuroForge |
-| `VITE_DATAFORGE_URL` | `http://localhost:8001` | DataForge |
-| `VITE_LICENSE_API_URL` | `http://localhost:8002/license` | License validation |
+| Variable | Default | Service | Shape |
+|---|---|---|---|
+| `VITE_NEUROFORGE_URL` | `http://localhost:8000` | NeuroForge | Origin |
+| `VITE_DATAFORGE_URL` | `http://localhost:8001` | DataForge | Origin |
+| `VITE_LICENSE_API_URL` | `http://localhost:8002/license` | License validation | Base path |
 
-Set an origin only. Do not add a path or a trailing slash.
-The module strips a trailing slash and derives the rest:
+The two origins take a scheme, a host and a port, and no path.
+
+`VITE_LICENSE_API_URL` is a base-path URL, not an origin. It includes its
+`/license` segment, and a caller appends to it. It is shaped differently
+because no service owns the route, so there is no origin to name.
+
+Never add a trailing slash. The module strips one and derives the rest:
 
 | Constant | Derived from |
 |---|---|

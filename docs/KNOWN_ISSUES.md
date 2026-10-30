@@ -8,11 +8,17 @@
 - No workflow runs this check, so CI does not show the failure. The new Documentation CI runs only `check:agent-instruction-drift`, which passes.
 - Scope: open. Fix the README title extraction or the manifest, then add the check to the Documentation CI.
 
-## 2026-10-02 - Scheduled nightly E2E workflow (open)
+## 2026-10-02 - Scheduled nightly E2E workflow (closed)
 
-- What: `.github/workflows/e2e-nightly.yml` runs 6 browser shards every day at 02:00 UTC, whether or not code changed.
-- The owner rule is "no scheduled full runs". The CI-scope change did not touch this workflow.
-- Scope: open. The owner must decide whether to remove the schedule.
+- What was wrong: `.github/workflows/e2e-nightly.yml` ran 6 browser shards
+  every day at 02:00 UTC, whether or not code changed, against the owner rule
+  that there are no scheduled full runs.
+- Fix: the operator removed the schedule by ruling. The workflow is now
+  `.github/workflows/e2e-full.yml`, triggered by dispatch or by a workflow
+  call. Manual execution, sharding and merged reports are preserved. The
+  failure-notification job is removed, because it existed to report an
+  unattended run and would now file an issue on a lane an operator triggered
+  and is watching.
 
 ## 2026-10-02 - Coverage step is advisory (open)
 
@@ -121,15 +127,13 @@
   failed with `Executable doesn't exist at .../chromium_headless_shell-1194`
   before even reaching the login. They now install chromium as well.
 
-## 2026-10-30 - Downstream E2E specs need a local service stack (open)
+## 2026-10-30 - Downstream E2E specs need a local service stack (open, lanes split)
 
-- What is wrong: with the login blocker gone the 138 specs under `tests/e2e/`
-  run for the first time, and most of them fail on a 30s timeout.
-- Cause: they are integration tests. On load the application requests
-  `ws://localhost:8001/ws`, license validation on `http://localhost:8002`, and
-  the DataForge and NeuroForge MCP servers. CI runs `pnpm dev` only, so every
-  one is refused and the specs wait for content that never renders.
-  Authentication is not involved.
+- What is wrong: 88 of 143 specs fail because they are integration tests. On
+  load the application requests `ws://localhost:8001/ws`, license validation on
+  `http://localhost:8002`, and the DataForge and NeuroForge MCP servers. CI
+  runs `pnpm dev` only, so every one is refused and the specs wait for content
+  that never renders. Authentication is not involved.
 - Measured locally on chromium, full run, two workers, no retries: 54 passed,
   88 failed, 1 skipped of 143, in 21.6 minutes. Six files hold 85 of the 88
   failures.
@@ -153,40 +157,37 @@
   host capability. No service supplies it, so those specs cannot pass in a
   browser whatever is running. "Runtime" there does not mean an inference
   runtime.
-- The three E2E jobs cannot finish. `.github/workflows/ci.yml` sets
-  `timeout-minutes: 30` on the E2E job, and all three were cancelled at that
-  cap on `7b93eed`. The local run took 21.6 minutes with two workers and no
-  retries. CI uses one worker and two retries, so the same suite needs roughly
-  two hours. The lane is therefore not slow; it cannot report a result at all.
-- Before the login blocker was fixed the job failed in about two minutes,
-  because 138 specs never ran. The fix removed that fast failure. Both states
-  are red, but the shape changed, and the 30-minute cap is now the binding
-  constraint.
-- Do not raise `timeout-minutes` to absorb this. That hides the lane problem
-  and spends more CI to reach the same red.
-- Scope: open, and it is an owner decision, not a test fix. The options are to
-  mock each service boundary, to run the stack in CI, or to classify these
-  specs into their own project with their own gate, the way the
-  real-authentication lane now works. Do not resolve it by skipping tests to
-  reach green.
+- Partly addressed: the lanes are split, by operator ruling. Ordinary CI now
+  runs an eleven-test `@smoke` subset on chromium, blocking, in about a minute.
+  Full browser regression moved to `e2e-full.yml`, by dispatch or call only. No
+  test is skipped or disabled; the service-dependent specs still run in the
+  full lane and still fail there, which is what its reports are for.
+- Before the split, `ci.yml` ran all 143 specs on three browsers on every push
+  under a 30-minute cap. One worker and two retries need about two hours, so
+  all three jobs were cancelled and reported nothing, and every push to a code
+  pull request spent about 1.5 job-hours to learn nothing.
+- Scope: still open. The specs are classified by lane, not by dependency. The
+  remaining decision is what to do with the 88: mock each service boundary, run
+  the stack, or move them into a declared service-dependent project with its
+  own gate, the way the real-authentication lane works. Do not resolve it by
+  skipping tests to reach green.
 
-## 2026-10-30 - The documented CI path-filter rule is wrong for pull requests (closed)
+## 2026-10-30 - Nothing gates publishing or deployment (open)
 
-- What was wrong: `doc/system/50-operations.md` stated that a change touching
-  only documentation runs the Documentation CI and no code CI. That is true for
-  a push to `main`, `master` or `develop`. It is false for a pull request.
-- `ci.yml` lists `branches: [main, master, develop]` on both triggers. A push to
-  a feature branch therefore never starts the code CI. The `pull_request`
-  trigger starts it, and GitHub applies the `paths` filter to the whole diff
-  against the base branch rather than to the pushed commit.
-- Effect: a pull request that changes one source file runs the full code CI on
-  every later push, including a documentation-only push. Measured on PR #13:
-  `6df1c35` changed only `docs/KNOWN_ISSUES.md` and ran Lint, Unit Tests, Build
-  and all three E2E jobs.
-- Cost while the E2E lane cannot finish: every push to a code pull request
-  spends three cancelled 30-minute E2E jobs, about 1.5 job-hours, whatever the
-  push contains.
-- Fix: the part is corrected. The rule now states both cases.
+- What is wrong: `.github/workflows/release-gate.yml` runs the blocking
+  real-authentication lane on a `v*` tag, but this repository has no publish or
+  deploy workflow. A tag-triggered run happens alongside a release; it does not
+  prevent one.
+- Partly addressed: the gate now accepts `workflow_call`, so a future publish
+  workflow can enforce it by construction, with `needs` on a called gate job or
+  a protected environment that requires the check. The workflow header states
+  the required shape.
+- Full browser regression also accepts a workflow call, and belongs in the gate
+  as a second blocking job once the service-dependent specs move to their own
+  lane. It is not wired yet, because it cannot pass today and a gate that can
+  never pass gates nothing.
+- Scope: open until a publish or deploy workflow exists and declares the
+  dependency.
 
 ## 2026-10-30 - Service endpoint configuration was contradictory (closed)
 
@@ -247,6 +248,33 @@
   preserved rather than corrected, because guessing an owner would be worse
   than a visible failure.
 - Scope: open. It needs a decision on which service owns license validation.
+
+## 2026-10-30 - Client license state is not entitlement verification (open)
+
+- What is wrong: `core/stores/license.svelte.ts` holds the tier in client state
+  and derives `isFree`, `isTrial`, `isPro` and `isEnterprise` from it. It
+  exposes `upgradeTier(tier)`, which sets that state directly, and `startTrial`.
+  `validateLicense()` posts to a route no service implements, so validation
+  always fails while the derived flags keep answering.
+- Effect: nothing here can be treated as verified paid entitlement. A value the
+  browser sets is not evidence.
+- Validation also runs automatically, against the absent route, so the failure
+  is recurring rather than triggered.
+- Raised in the governance review of `e99f5f8`. Not addressed in that change,
+  and not required to undo it.
+- Scope: open. It needs the licensing owner decision first, then an explicit
+  unverified state rather than a client-held tier.
+
+## 2026-10-30 - The sync socket reconnects to a route that does not exist (open)
+
+- What is wrong: `core/sync/websocket.ts` retries with exponential backoff up to
+  `maxReconnectAttempts = 10`. No DataForge route answers `/ws`, so every
+  attempt is refused. A browser probe recorded attempts at 1s, 2s, 4s and 8s.
+- Effect: a connection that cannot succeed looks like one that is retrying. An
+  explicit sync-unavailable state is preferable to indefinite reconnection.
+- Raised in the governance review of `e99f5f8`. Not addressed in that change,
+  and not required to undo it.
+- Scope: open, pending an implemented and tested `/ws` contract.
 
 ## 2026-10-30 - Declared feature flags that nothing reads (open)
 

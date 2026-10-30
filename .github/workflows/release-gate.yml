@@ -15,6 +15,33 @@
 # only performs a login and reads local storage.
 #
 # Authorized by the operator ruling on PR #13, conditions 4 and 5.
+#
+# WHAT THIS GATE DOES NOT DO YET
+#
+# This repository has no publish or deploy workflow. Nothing is gated today.
+# A tag-triggered run happens alongside a release; it does not prevent one.
+#
+# `workflow_call` exists so that a future publish workflow enforces this gate
+# by construction rather than by convention. A publish job must either call
+# this workflow and depend on it:
+#
+#     jobs:
+#       gate:
+#         uses: ./.github/workflows/release-gate.yml
+#         secrets: inherit
+#       publish:
+#         needs: [gate]
+#
+# or sit behind a protected environment that requires this check. A publish job
+# that merely runs after this one, with no `needs`, is not gated.
+#
+# Full browser regression (`e2e-full.yml`) also accepts `workflow_call`, and
+# belongs here as a second blocking job once the service-dependent specs are
+# classified into their own lane. It is not added yet, because it cannot pass
+# today and a gate that can never pass gates nothing. Run it by dispatch at
+# release qualification and read its reports.
+#
+# See docs/KNOWN_ISSUES.md.
 
 name: Release Gate
 
@@ -23,6 +50,7 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   real-auth-gate:

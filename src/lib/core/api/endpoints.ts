@@ -15,15 +15,25 @@
  * | 8001 | DataForge |
  * | 8002 | Rake |
  *
- * Each value is an origin with no path. A caller that needs a versioned path
- * uses `NEUROFORGE_API_V1` or `DATAFORGE_API_V1`, and a caller that needs a
- * socket uses the derived websocket URLs, so host and port cannot drift
- * between the two protocols.
+ * Two of the three values are origins with no path: `NEUROFORGE_URL` and
+ * `DATAFORGE_URL`. A caller that needs a versioned path uses
+ * `NEUROFORGE_API_V1` or `DATAFORGE_API_V1`, and a caller that needs a socket
+ * uses the derived websocket URLs, so host and port cannot drift between the
+ * two protocols.
+ *
+ * `LICENSE_API_URL` is not an origin. It is a base-path URL: it carries the
+ * `/license` path segment, and callers append to it. It is shaped differently
+ * because no service owns the route, so there is no origin to name. See its
+ * own note below.
  */
 
-function readOrigin(configured: string | undefined, fallback: string): string {
+/**
+ * Reads a configured URL, falling back to the default. Accepts either an
+ * origin or a base-path URL; a trailing slash would double up against every
+ * path this is joined to, so it is stripped.
+ */
+function readBaseUrl(configured: string | undefined, fallback: string): string {
 	const value = (configured ?? '').trim() || fallback;
-	// A trailing slash would double up against every path this is joined to.
 	return value.replace(/\/+$/, '');
 }
 
@@ -31,14 +41,14 @@ function toWebSocketUrl(httpUrl: string): string {
 	return httpUrl.replace(/^http/, 'ws');
 }
 
-/** NeuroForge: model routing, inference, authentication, insights. */
-export const NEUROFORGE_URL = readOrigin(
+/** NeuroForge: model routing, inference, authentication, insights. An origin. */
+export const NEUROFORGE_URL = readBaseUrl(
 	import.meta.env.VITE_NEUROFORGE_URL,
 	'http://localhost:8000'
 );
 
-/** DataForge: durable records this application reads. */
-export const DATAFORGE_URL = readOrigin(
+/** DataForge: durable records this application reads. An origin. */
+export const DATAFORGE_URL = readBaseUrl(
 	import.meta.env.VITE_DATAFORGE_URL,
 	'http://localhost:8001'
 );
@@ -46,12 +56,16 @@ export const DATAFORGE_URL = readOrigin(
 /**
  * License validation.
  *
+ * A base-path URL rather than an origin: the value includes the `/license`
+ * path segment, and callers append to it, as `core/stores/license.svelte.ts`
+ * does with `/validate`.
+ *
  * The default targets port 8002, which the port registry assigns to Rake, and
  * no service in the ecosystem implements this route. The value is preserved
  * rather than corrected, because which service owns license validation is an
  * open question. See docs/KNOWN_ISSUES.md.
  */
-export const LICENSE_API_URL = readOrigin(
+export const LICENSE_API_URL = readBaseUrl(
 	import.meta.env.VITE_LICENSE_API_URL,
 	'http://localhost:8002/license'
 );

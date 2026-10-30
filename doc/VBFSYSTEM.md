@@ -195,14 +195,19 @@ One variable configures one service. `src/lib/core/api/endpoints.ts` is the only
 place that reads an endpoint variable. Every other module imports a constant
 from it.
 
-| Variable | Default | Service |
-|---|---|---|
-| `VITE_NEUROFORGE_URL` | `http://localhost:8000` | NeuroForge |
-| `VITE_DATAFORGE_URL` | `http://localhost:8001` | DataForge |
-| `VITE_LICENSE_API_URL` | `http://localhost:8002/license` | License validation |
+| Variable | Default | Service | Shape |
+|---|---|---|---|
+| `VITE_NEUROFORGE_URL` | `http://localhost:8000` | NeuroForge | Origin |
+| `VITE_DATAFORGE_URL` | `http://localhost:8001` | DataForge | Origin |
+| `VITE_LICENSE_API_URL` | `http://localhost:8002/license` | License validation | Base path |
 
-Set an origin only. Do not add a path or a trailing slash.
-The module strips a trailing slash and derives the rest:
+The two origins take a scheme, a host and a port, and no path.
+
+`VITE_LICENSE_API_URL` is a base-path URL, not an origin. It includes its
+`/license` segment, and a caller appends to it. It is shaped differently
+because no service owns the route, so there is no origin to name.
+
+Never add a trailing slash. The module strips one and derives the rest:
 
 | Constant | Derived from |
 |---|---|
@@ -275,7 +280,7 @@ The rule holds for a push to `main`, `master` or `develop`.
 A push that touches only documentation runs the Documentation CI and no code CI.
 A push that touches any other file runs the code CI.
 A push that touches both runs both.
-The nightly E2E workflow is schedule-only and is not part of this rule.
+The full browser regression workflow runs by dispatch or by call, and is not part of this rule.
 
 The rule does not hold for a pull request.
 The `push` trigger lists `branches: [main, master, develop]`, so a push to a
@@ -310,9 +315,49 @@ When the filter skips the workflow, the required check stays pending and blocks 
 
 ## E2E lanes
 
-There are two E2E lanes. They make different claims.
+There are three E2E lanes. They make different claims and run at different
+times.
 
-### The hermetic lane
+| Lane | Workflow | Trigger | Blocking |
+|---|---|---|---|
+| PR smoke | `ci.yml`, job `e2e-smoke` | Every code pull request | Yes |
+| Full browser regression | `e2e-full.yml` | Dispatch, or a workflow call | No, see below |
+| Real authentication | `release-gate.yml` | A `v*` tag, dispatch, or a call | Yes |
+
+### PR smoke
+
+Chromium only, hermetic, and bounded. It runs the specs tagged `@smoke`:
+eleven critical-path tests covering login failure, project creation, the
+wizard opening and closing, and preference persistence. It finishes in about
+one minute, and the job is capped at 15.
+
+To add a test to this lane, tag it `@smoke`. Keep the lane bounded. It exists
+to catch a broken critical path quickly, not to cover the product.
+
+### Full browser regression
+
+Every spec, on Chromium, Firefox and WebKit, in four shards per browser, with
+merged reports. It is capped at 60 minutes.
+
+It is not in ordinary pull-request CI, and it has no schedule, under the rule
+that there are no scheduled full runs.
+
+This lane fails today. Most specs need a local service stack that CI does not
+run. The reports are the point: they state which specs still depend on a
+service. It is therefore not a blocking job in the release gate, because a gate
+that cannot pass gates nothing. Run it at release qualification and read the
+reports.
+
+### Why the lanes are split
+
+Before the split, `ci.yml` ran all 143 specs on three browsers on every push,
+capped at 30 minutes. One worker and two retries need about two hours, so all
+three jobs were cancelled at the cap and reported nothing. The cap was not the
+defect; the lane was. Raising it would have spent four times the CI to reach
+the same red.
+
+
+### How the hermetic session works
 
 The `setup` project answers the login request in the browser.
 `tests/e2e/support/syntheticSession.ts` holds the synthetic session.
@@ -333,7 +378,7 @@ The application has no bypass.
 `src/lib/auth.ts` always performs a real request.
 All interception lives under `tests/`.
 
-### The real-authentication lane
+### How the real-authentication lane works
 
 `tests/e2e-real-auth/real-auth.spec.ts` is the only spec that authenticates.
 It intercepts nothing.
@@ -366,9 +411,21 @@ a real one.
 ### The release gate
 
 `.github/workflows/release-gate.yml` runs the real-authentication lane.
-It runs on a `v*` tag and on manual dispatch.
-The job is blocking.
-It fails when the settings are absent, so a release cannot pass it unconfigured.
+It runs on a `v*` tag, on dispatch, and on a workflow call.
+The job is blocking, and it fails when the settings are absent, so the gate
+cannot pass unconfigured.
+
+**The gate does not yet gate anything.** This repository has no publish or
+deploy workflow. A tag-triggered run happens alongside a release; it does not
+prevent one.
+
+`workflow_call` exists so a future publish workflow enforces the gate by
+construction. A publish job must call this workflow and declare `needs` on it,
+or sit behind a protected environment that requires the check. A publish job
+that merely runs after this one is not gated.
+
+Full browser regression also accepts a workflow call, and belongs here as a
+second blocking job once the service-dependent specs move to their own lane.
 
 ### What the downstream specs need
 

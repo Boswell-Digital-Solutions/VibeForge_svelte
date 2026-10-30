@@ -35,7 +35,7 @@ async function storedToken(page: import('@playwright/test').Page) {
 }
 
 test.describe('login failure paths', () => {
-	test('a rejected credential shows the reason and establishes no session', async ({ page }) => {
+	test('a rejected credential shows the reason and establishes no session', { tag: '@smoke' }, async ({ page }) => {
 		await page.route(LOGIN_ENDPOINT_GLOB, (route) =>
 			route.fulfill({
 				status: 401,
@@ -51,7 +51,7 @@ test.describe('login failure paths', () => {
 		expect(await storedToken(page)).toBeNull();
 	});
 
-	test('an unparseable success response establishes no session', async ({ page }) => {
+	test('an unparseable success response establishes no session', { tag: '@smoke' }, async ({ page }) => {
 		await page.route(LOGIN_ENDPOINT_GLOB, (route) =>
 			route.fulfill({
 				status: 200,
@@ -69,7 +69,7 @@ test.describe('login failure paths', () => {
 		expect(await storedToken(page)).toBeNull();
 	});
 
-	test('a success response carrying no token establishes no session', async ({ page }) => {
+	test('a success response carrying no token establishes no session', { tag: '@smoke' }, async ({ page }) => {
 		await page.route(LOGIN_ENDPOINT_GLOB, (route) =>
 			route.fulfill({
 				status: 200,
@@ -87,7 +87,7 @@ test.describe('login failure paths', () => {
 		expect(await storedToken(page)).toBeNull();
 	});
 
-	test('an unreachable endpoint shows an error and establishes no session', async ({ page }) => {
+	test('an unreachable endpoint shows an error and establishes no session', { tag: '@smoke' }, async ({ page }) => {
 		await page.route(LOGIN_ENDPOINT_GLOB, (route) => route.abort('failed'));
 
 		await submitLogin(page);

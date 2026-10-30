@@ -20,7 +20,7 @@ test.describe('Wizard Modal - Opening and Closing', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('should open wizard with Cmd+N keyboard shortcut', async ({ page }) => {
+  test('should open wizard with Cmd+N keyboard shortcut', { tag: '@smoke' }, async ({ page }) => {
     // Press Cmd+N (or Ctrl+N on non-Mac)
     await page.keyboard.press('Meta+N');
 
@@ -54,7 +54,7 @@ test.describe('Wizard Modal - Opening and Closing', () => {
     await expect(page.getByRole('heading', { name: 'Project Intent' })).toBeVisible({ timeout: 5000 });
   });
 
-  test('should close wizard with ESC key', async ({ page }) => {
+  test('should close wizard with ESC key', { tag: '@smoke' }, async ({ page }) => {
     // Open wizard
     await page.keyboard.press('Meta+N');
     await expect(page.getByRole('heading', { name: 'Project Intent' })).toBeVisible();

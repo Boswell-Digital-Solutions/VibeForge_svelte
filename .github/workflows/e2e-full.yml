@@ -1,22 +1,40 @@
-name: E2E Tests (Nightly)
+# Full browser regression.
+#
+# Every spec, on all three browsers, with complete reports. This lane is not
+# part of ordinary pull-request CI: that runs the bounded `@smoke` subset in
+# ci.yml. This one runs by dispatch, or when a release-qualification workflow
+# calls it.
+#
+# The daily schedule is removed, under the rule that there are no scheduled
+# full runs.
+#
+# This lane is expected to fail today. Most specs need a local service stack
+# that CI does not run, so they time out. The reports are the point: they say
+# which specs still depend on a service. See docs/KNOWN_ISSUES.md. It is
+# therefore not yet wired as a blocking job in release-gate.yml, because it
+# could not pass.
+#
+# Four shards per browser, and a 60-minute cap, so a run finishes and the
+# reports are complete. Before the split this suite was capped at 30 minutes
+# and reported nothing.
+
+name: E2E Full Browser Regression
 
 on:
-  schedule:
-    # Run at 2 AM UTC every day
-    - cron: '0 2 * * *'
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
-  e2e-nightly:
-    name: Nightly E2E Tests - All Browsers
+  e2e-full:
+    name: Full Browser Regression
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     strategy:
       fail-fast: false
       matrix:
         browser: [chromium, firefox, webkit]
-        shard: [1/2, 2/2] # Run tests in parallel shards
+        shard: [1/4, 2/4, 3/4, 4/4]
 
     steps:
       - name: Checkout code
@@ -51,7 +69,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-nightly-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_number }}
+          name: playwright-report-full-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_number }}
           path: playwright-report/
           retention-days: 14
 
@@ -59,7 +77,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-nightly-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_number }}
+          name: test-results-full-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_number }}
           path: test-results/
           retention-days: 14
 
@@ -74,7 +92,7 @@ jobs:
   merge-reports:
     name: Merge Test Reports
     if: always()
-    needs: [e2e-nightly]
+    needs: [e2e-full]
     runs-on: ubuntu-latest
 
     steps:
@@ -108,43 +126,6 @@ jobs:
       - name: Upload merged HTML report
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-nightly-merged-${{ github.run_number }}
+          name: playwright-report-full-merged-${{ github.run_number }}
           path: playwright-report/
           retention-days: 30
-
-  notify:
-    name: Notify on Failure
-    if: failure()
-    needs: [e2e-nightly]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Create issue on failure
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = `Nightly E2E Tests Failed - ${new Date().toISOString().split('T')[0]}`;
-            const body = `
-            ## Nightly E2E Test Failure
-
-            The nightly E2E tests have failed.
-
-            **Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            **Date:** ${new Date().toISOString()}
-
-            Please review the test results and fix any failing tests.
-
-            ### Test Artifacts
-            - Check the workflow run for Playwright reports and screenshots
-            - Review test videos for failed tests
-
-            /cc @${context.repo.owner}
-            `;
-
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['bug', 'e2e-test', 'automated']
-            });
