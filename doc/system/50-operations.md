@@ -9,6 +9,77 @@ Deployment, observability, incident response, and bounded repair.
 > real authored content. Registry will not invent repo truth that is not
 > already present in the repo.
 
+## The production build
+
+`pnpm build` writes a directory of prerendered files to `build/`.
+`src-tauri/tauri.conf.json` names that directory as `frontendDist: "../build"`
+and `generate_context!` reads it at compile time, so the desktop binary does
+not compile without it.
+
+### Why adapter-static
+
+`svelte.config.js` uses `@sveltejs/adapter-static` with `pages` and `assets`
+both set to `build`, and `src/routes/+layout.ts` sets `prerender = true` for
+every route below it, which is all of them.
+
+Before this, the repository used `@sveltejs/adapter-auto`. That adapter detects
+a hosting platform and writes nothing when it finds none, which was the case
+here: `pnpm build` printed `Could not detect a supported production
+environment` and emitted only `.svelte-kit/output`. The desktop application
+therefore could not be built at all, and CI did not notice, because
+`pnpm build` exits 0 and the artifact upload only warned about the empty path.
+
+Prerendering every route is viable because nothing in this application needs a
+server at runtime. `src/routes/` holds no `+page.server.ts`, no
+`+layout.server.ts`, no `+server.ts`, no form action and no dynamic route
+parameter, so SvelteKit enumerates every route without crawling for links.
+
+`trailingSlash` stays at its default of `never`, so a route is written as
+`settings.html` rather than `settings/index.html`. That matches Tauri's asset
+resolver, which tries the exact path, then `<path>.html`, then
+`<path>/index.html`, then `index.html`
+(`tauri-2.9.3/src/manager/mod.rs`, `AppManager::get_asset`). A reload at a
+nested route therefore resolves to that route's own file.
+
+`strict` stays at its default of `true`, so the build fails if any route is
+not prerendered rather than producing an artifact with holes in it. No
+`fallback` is configured, because setting one switches that check off.
+
+### How the artifact is verified
+
+Three things guard it, in the `Build` job of `.github/workflows/ci.yml`:
+
+1. An assertion step requires `build/`, a non-empty `build/index.html`,
+   `build/_app/`, and one non-empty file per route. It fails the job; it does
+   not warn.
+2. `pnpm verify:artifact` runs `scripts/verify-production-artifact.mjs`
+   against the built files.
+3. The artifact upload sets `if-no-files-found: error`.
+
+`verify-production-artifact.mjs` serves `build/` over a resolver written to
+match Tauri's four-step order, then requires the client to be live. Equal
+counts of links and buttons would not do: prerendered HTML carries the full
+markup whether or not the client ever hydrates, so a page with dead event
+handlers measures the same as a working one. Each check instead needs
+something only a running client produces:
+
+- the `sveltekit:history` key that SvelteKit's client router stamps into
+  `history.state` on startup, which cannot be present in static markup;
+- clicking an in-app link and finding a value set on `window` still there
+  afterwards, which a document reload would have destroyed;
+- `Meta+N` revealing the project wizard, and `Meta+Shift+N` revealing Quick
+  Create, both handled only by live JavaScript;
+- typing a project name flipping Quick Create's Create button from disabled to
+  enabled, which requires a derived value to recompute and write to the DOM;
+- `/settings` serving bytes that differ from `index.html`, because Tauri's last
+  resort is to serve the index, so a route missing from the artifact answers
+  200 at its own URL and only a comparison reveals it.
+
+The script was checked against deliberately broken artifacts. With
+`build/_app/immutable/entry` deleted, 8 checks fail. With `build/settings.html`
+deleted, the route still serves 200 and hydrates, exactly as it would in Tauri,
+and the byte comparison is the single check that fails.
+
 ## Which CI runs for which change
 
 The rule holds for a push to `main`, `master` or `develop`.

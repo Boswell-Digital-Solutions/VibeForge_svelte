@@ -1,5 +1,52 @@
 # Known Issues
 
+## 2026-10-30 - The desktop application could not be built (closed)
+
+- What was wrong: `src-tauri/tauri.conf.json` set `frontendDist` to
+  `"../build"`, and `svelte.config.js` used `@sveltejs/adapter-auto`, which
+  detects a hosting platform and writes nothing when it finds none. That was
+  the case here: `pnpm build` printed `Could not detect a supported production
+  environment` and emitted only `.svelte-kit/output`. No `build/` directory
+  existed, so `cargo build --bin vibeforge` and `tauri build` both failed with
+  `proc macro panicked ... The frontendDist configuration is set to
+  "../build" but this path doesn't exist`. A bare `cargo test` failed for the
+  same reason, because it builds every target.
+- Why CI did not catch it: `pnpm build` exits 0, and the `upload-artifact`
+  step for `build/` defaulted to `if-no-files-found: warn`, so the Build job
+  uploaded nothing and stayed green.
+- Fix: `@sveltejs/adapter-static` with `pages` and `assets` set to `build`,
+  and `prerender = true` in a root `src/routes/+layout.ts`. Chosen over
+  pointing `frontendDist` at `.svelte-kit/output/client`, whose layout is a
+  SvelteKit internal rather than a contract. Authorized by the operator on
+  2026-10-30 on measured evidence.
+- Measured outcome: all 16 routes prerender, 99 files, 5.2 MB, no route
+  needing an opt-out. `cargo build --bins` then succeeds and produces
+  `src-tauri/target/debug/vibeforge` — verified on a branch off `master` with
+  no other change, so the adapter alone accounts for it. `pnpm run check` 0
+  errors, `pnpm test:run` 1416 passed, `pnpm verify:artifact` 27 of 27.
+- Guarded against recurrence in the Build job: an assertion step requiring
+  `build/`, `build/index.html`, `build/_app/` and one file per route;
+  `pnpm verify:artifact`; and `if-no-files-found: error` on the upload. See
+  `doc/system/50-operations.md`.
+- Scope: closed. Two related items stay open below: the four live
+  `_archive` routes, and the commented-out route guard, which prerendering
+  makes more pointed because static HTML cannot be auth-gated.
+
+## 2026-10-30 - `src/routes/_archive/` holds four live routes (open)
+
+- What is wrong: `src/routes/_archive/` contains `analytics`,
+  `dev-environment`, `presets` and `quick-run` pages. The directory name
+  suggests they are retired, but SvelteKit treats `_archive` as an ordinary
+  route segment, so `/_archive/analytics` and its three siblings are reachable
+  routes. They appear in `.svelte-kit/output` and now prerender to
+  `build/_archive/*.html`.
+- Prerendering did not cause this and does not change it. It makes it visible:
+  the four files are listed in the artifact.
+- Scope: open, and an operator decision about the product. Either they are
+  live pages and the directory name is wrong, or they are retired and should
+  be deleted or moved outside `src/routes/`. Not changed as part of the
+  adapter work, which was scoped to exclude them.
+
 ## 2026-10-30 - No workflow builds or tests Rust (open)
 
 - What is wrong: `src-tauri/` carries seven Tauri commands, an authority
