@@ -34,6 +34,8 @@ const mockSession: PlanningSession = {
 		type: 'default',
 		name: 'Default Planning',
 		description: 'Balanced 4-stage workflow',
+		estimatedDuration: 30,
+		maxIterations: 3,
 		stages: []
 	},
 	stages: [
@@ -49,8 +51,11 @@ const mockSession: PlanningSession = {
 			userInjections: [],
 			result: {
 				content: 'Test output',
-				tokensUsed: { input: 100, output: 200, total: 300 },
-				cost: 0.015
+				tokensUsed: { prompt: 100, completion: 200, total: 300 },
+				cost: 0.015,
+				model: 'claude-3-5-sonnet-20241022',
+				provider: 'anthropic',
+				durationMs: 1200
 			},
 			startedAt: new Date('2025-01-01T10:00:00Z'),
 			completedAt: new Date('2025-01-01T10:02:00Z'),
@@ -81,7 +86,9 @@ const mockSession: PlanningSession = {
 	startedAt: new Date('2025-01-01T10:00:00Z'),
 	pausedAt: null,
 	completedAt: new Date('2025-01-01T10:02:00Z'),
-	error: null
+	error: null,
+	userId: 'user_test',
+	workspaceId: 'ws_test'
 };
 
 describe('createPlanVersion', () => {

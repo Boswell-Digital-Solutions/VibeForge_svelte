@@ -24,19 +24,22 @@ const mockSessionA: PlanningSession = {
 		type: 'default',
 		name: 'Default',
 		description: 'Default pipeline',
+		estimatedDuration: 30,
+		maxIterations: 3,
 		stages: []
 	},
 	stages: [
 		{
 			id: 'stage_0',
-			type: 'initial',
+			index: 0,
 			config: {} as any,
 			status: 'completed',
 			input: 'Test input',
 			output: '## Overview\nSession A plan.',
-			context: [],
-			tokens: { input: 100, output: 200, total: 300 },
-			cost: 0.015,
+			result: null,
+			error: null,
+			previousContext: [],
+			userInjections: [],
 			startedAt: new Date('2025-01-01T10:00:00Z'),
 			completedAt: new Date('2025-01-01T10:02:00Z')
 		}
@@ -79,19 +82,22 @@ const mockSessionB: PlanningSession = {
 		type: 'quick',
 		name: 'Quick',
 		description: 'Quick pipeline',
+		estimatedDuration: 30,
+		maxIterations: 3,
 		stages: []
 	},
 	stages: [
 		{
 			id: 'stage_0',
-			type: 'initial',
+			index: 0,
 			config: {} as any,
 			status: 'completed',
 			input: 'Test input',
 			output: '## Overview\nSession B plan.',
-			context: [],
-			tokens: { input: 80, output: 150, total: 230 },
-			cost: 0.0115,
+			result: null,
+			error: null,
+			previousContext: [],
+			userInjections: [],
 			startedAt: new Date('2025-01-01T11:00:00Z'),
 			completedAt: new Date('2025-01-01T11:01:30Z')
 		}

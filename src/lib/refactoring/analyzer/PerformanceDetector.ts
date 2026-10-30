@@ -74,12 +74,27 @@ export class PerformanceDetector {
 			});
 		}
 
-		// Detect array methods in loops
-		lines.forEach((line, index) => {
-			const hasLoop = /\bfor\s*\(/.test(line) || /\bwhile\s*\(/.test(line);
-			const hasArrayMethod = /\.(?:push|concat|splice|shift|unshift)\(/.test(line);
+		// Detect array mutation inside loop bodies. The mutation normally sits on a
+		// line below the loop header, so track depth instead of demanding both on
+		// the same line.
+		let mutationLoopDepth = 0;
 
-			if (hasLoop && hasArrayMethod) {
+		lines.forEach((line, index) => {
+			const trimmed = line.trim();
+			const opensLoop =
+				/\bfor\s*\(/.test(trimmed) ||
+				/\bwhile\s*\(/.test(trimmed) ||
+				/\.forEach\(/.test(trimmed) ||
+				/\.map\(/.test(trimmed);
+			const hasArrayMethod = /\.(?:push|concat|splice|shift|unshift)\(/.test(trimmed);
+
+			if (opensLoop) {
+				mutationLoopDepth++;
+			} else if (trimmed === '}' && mutationLoopDepth > 0) {
+				mutationLoopDepth--;
+			}
+
+			if (mutationLoopDepth > 0 && hasArrayMethod) {
 				issues.push({
 					id: `loop-array-mutation-${filename}-${index}`,
 					severity: 'info',
@@ -182,10 +197,10 @@ export class PerformanceDetector {
 		const lines = content.split('\n');
 
 		const blockingPatterns = [
-			{ pattern: /fs\.readFileSync\(/g, name: 'fs.readFileSync' },
-			{ pattern: /fs\.writeFileSync\(/g, name: 'fs.writeFileSync' },
-			{ pattern: /execSync\(/g, name: 'execSync' },
-			{ pattern: /crypto\.pbkdf2Sync\(/g, name: 'crypto.pbkdf2Sync' }
+			{ pattern: /fs\.readFileSync\(/, name: 'fs.readFileSync' },
+			{ pattern: /fs\.writeFileSync\(/, name: 'fs.writeFileSync' },
+			{ pattern: /execSync\(/, name: 'execSync' },
+			{ pattern: /crypto\.pbkdf2Sync\(/, name: 'crypto.pbkdf2Sync' }
 		];
 
 		blockingPatterns.forEach(({ pattern, name }) => {
@@ -289,7 +304,8 @@ export class PerformanceDetector {
 		lines.forEach((line, index) => {
 			largeLibraries.forEach(lib => {
 				// Default import of large library
-				if (new RegExp(`import\\s+\\w+\\s+from\\s+["']${lib}["']`).test(line)) {
+				// [\w$] so `import $ from 'jquery'` and `import _ from 'lodash'` match.
+				if (new RegExp(`import\\s+[\\w$]+\\s+from\\s+["']${lib}["']`).test(line)) {
 					issues.push({
 						id: `large-import-${filename}-${index}`,
 						severity: 'info',

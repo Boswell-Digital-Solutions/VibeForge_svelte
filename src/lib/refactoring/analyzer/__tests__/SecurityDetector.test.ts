@@ -69,7 +69,7 @@ const openaiKey = "sk-1234567890abcdefghijklmnopqrstuvwxyz";
 
 		it('should detect GitHub tokens', () => {
 			const content = `
-const token = "ghp_1234567890abcdefghijklmnopqrstuvw";
+const token = "ghp_1234567890abcdefghijklmnopqrstuvwxyz";
 			`;
 
 			const issues = detector.detectIssues(content, 'test.ts', 'typescript');

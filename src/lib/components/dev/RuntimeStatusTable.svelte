@@ -325,6 +325,8 @@
 </div>
 
 <style>
+	@reference "tailwindcss";
+
   .runtime-status-table {
     @apply p-6;
   }

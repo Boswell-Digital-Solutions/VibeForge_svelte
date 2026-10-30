@@ -444,6 +444,8 @@ function handleClose() {
 {/if}
 
 <style>
+	@reference "tailwindcss";
+
 	.plan-comparison-view {
 		@apply min-h-full;
 	}

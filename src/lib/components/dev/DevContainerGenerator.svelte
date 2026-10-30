@@ -325,6 +325,8 @@
 </div>
 
 <style>
+	@reference "tailwindcss";
+
   .devcontainer-generator {
     @apply p-6;
   }

@@ -106,6 +106,8 @@
 </div>
 
 <style>
+	@reference "tailwindcss";
+
 	.streaming-text {
 		@apply relative;
 	}

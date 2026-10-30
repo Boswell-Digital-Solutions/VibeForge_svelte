@@ -244,7 +244,7 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 <style>
 	.version-diff-view {
 		background: white;
-		border: 1px solid theme('colors.gray.200');
+		border: 1px solid var(--color-gray-200);
 		border-radius: 0.5rem;
 		overflow: hidden;
 	}
@@ -254,8 +254,8 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 		justify-content: space-between;
 		align-items: flex-start;
 		padding: 1.5rem;
-		background: theme('colors.gray.50');
-		border-bottom: 1px solid theme('colors.gray.200');
+		background: var(--color-gray-50);
+		border-bottom: 1px solid var(--color-gray-200);
 	}
 
 	.header-content {
@@ -265,13 +265,13 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 	.diff-title {
 		font-size: 1.25rem;
 		font-weight: 600;
-		color: theme('colors.gray.800');
+		color: var(--color-gray-800);
 		margin: 0 0 0.5rem 0;
 	}
 
 	.diff-summary {
 		font-size: 0.875rem;
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 		margin: 0;
 		line-height: 1.5;
 	}
@@ -284,15 +284,15 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 		justify-content: center;
 		border: none;
 		background: transparent;
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 		border-radius: 0.375rem;
 		cursor: pointer;
 		transition: all 0.15s;
 	}
 
 	.close-button:hover {
-		background: theme('colors.gray.200');
-		color: theme('colors.gray.700');
+		background: var(--color-gray-200);
+		color: var(--color-gray-700);
 	}
 
 	.close-icon {
@@ -306,7 +306,7 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 		gap: 1rem;
 		padding: 1rem 1.5rem;
 		background: white;
-		border-bottom: 1px solid theme('colors.gray.200');
+		border-bottom: 1px solid var(--color-gray-200);
 	}
 
 	.version-header {
@@ -316,25 +316,25 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 	}
 
 	.version-header.version-a {
-		background: theme('colors.blue.50');
-		border: 1px solid theme('colors.blue.200');
+		background: var(--color-blue-50);
+		border: 1px solid var(--color-blue-200);
 	}
 
 	.version-header.version-b {
-		background: theme('colors.purple.50');
-		border: 1px solid theme('colors.purple.200');
+		background: var(--color-purple-50);
+		border: 1px solid var(--color-purple-200);
 	}
 
 	.version-label {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: theme('colors.gray.800');
+		color: var(--color-gray-800);
 		margin-bottom: 0.25rem;
 	}
 
 	.version-date {
 		font-size: 0.75rem;
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 	}
 
 	.version-divider {
@@ -342,14 +342,14 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 		align-items: center;
 		justify-content: center;
 		font-size: 1.25rem;
-		color: theme('colors.gray.400');
+		color: var(--color-gray-400);
 	}
 
 	.metrics-comparison,
 	.requirements-section,
 	.sections-diff {
 		padding: 1.5rem;
-		border-bottom: 1px solid theme('colors.gray.200');
+		border-bottom: 1px solid var(--color-gray-200);
 	}
 
 	.sections-diff {
@@ -359,7 +359,7 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 	.section-title {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		margin: 0 0 1rem 0;
@@ -372,8 +372,8 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 	}
 
 	.metric-card {
-		background: theme('colors.gray.50');
-		border: 1px solid theme('colors.gray.200');
+		background: var(--color-gray-50);
+		border: 1px solid var(--color-gray-200);
 		border-radius: 0.375rem;
 		padding: 1rem;
 	}
@@ -392,7 +392,7 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 	.metric-name {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 	}
 
 	.metric-values {
@@ -409,12 +409,12 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 	}
 
 	.value-label {
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 		font-weight: 500;
 	}
 
 	.value-number {
-		color: theme('colors.gray.800');
+		color: var(--color-gray-800);
 		font-weight: 600;
 	}
 
@@ -424,21 +424,21 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 		align-items: center;
 		margin-top: 0.25rem;
 		padding-top: 0.5rem;
-		border-top: 1px solid theme('colors.gray.300');
+		border-top: 1px solid var(--color-gray-300);
 		font-size: 0.813rem;
 		font-weight: 600;
 	}
 
 	.metric-delta.delta-positive {
-		color: theme('colors.green.600');
+		color: var(--color-green-600);
 	}
 
 	.metric-delta.delta-negative {
-		color: theme('colors.red.600');
+		color: var(--color-red-600);
 	}
 
 	.metric-delta.delta-neutral {
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 	}
 
 	.delta-label {
@@ -455,12 +455,12 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 		position: relative;
 		padding: 0.75rem;
 		padding-left: 2rem;
-		background: theme('colors.green.50');
-		border: 1px solid theme('colors.green.200');
+		background: var(--color-green-50);
+		border: 1px solid var(--color-green-200);
 		border-radius: 0.375rem;
 		margin-bottom: 0.5rem;
 		font-size: 0.875rem;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 	}
 
 	.requirement-item::before {
@@ -468,7 +468,7 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 		position: absolute;
 		left: 0.75rem;
 		font-weight: 700;
-		color: theme('colors.green.600');
+		color: var(--color-green-600);
 	}
 
 	.requirement-item:last-child {
@@ -492,27 +492,27 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 	}
 
 	.stat-item.stat-added {
-		background: theme('colors.green.50');
-		border: 1px solid theme('colors.green.200');
-		color: theme('colors.green.700');
+		background: var(--color-green-50);
+		border: 1px solid var(--color-green-200);
+		color: var(--color-green-700);
 	}
 
 	.stat-item.stat-changed {
-		background: theme('colors.yellow.50');
-		border: 1px solid theme('colors.yellow.200');
-		color: theme('colors.yellow.700');
+		background: var(--color-yellow-50);
+		border: 1px solid var(--color-yellow-200);
+		color: var(--color-yellow-700);
 	}
 
 	.stat-item.stat-removed {
-		background: theme('colors.red.50');
-		border: 1px solid theme('colors.red.200');
-		color: theme('colors.red.700');
+		background: var(--color-red-50);
+		border: 1px solid var(--color-red-200);
+		color: var(--color-red-700);
 	}
 
 	.stat-item.stat-identical {
-		background: theme('colors.gray.50');
-		border: 1px solid theme('colors.gray.200');
-		color: theme('colors.gray.700');
+		background: var(--color-gray-50);
+		border: 1px solid var(--color-gray-200);
+		color: var(--color-gray-700);
 	}
 
 	.stat-icon {
@@ -543,7 +543,7 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 		padding: 3rem 2rem;
 		text-align: center;
 		background: white;
-		border: 1px solid theme('colors.gray.200');
+		border: 1px solid var(--color-gray-200);
 		border-radius: 0.5rem;
 	}
 
@@ -555,133 +555,133 @@ function getDeltaClass(value: number, invertColors: boolean = false): string {
 	.error-text {
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 		margin: 0 0 0.5rem 0;
 	}
 
 	.error-subtext {
 		font-size: 0.813rem;
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 		margin: 0;
 	}
 
 	:global(.dark) .version-diff-view {
-		background: theme('colors.gray.800');
-		border-color: theme('colors.gray.700');
+		background: var(--color-gray-800);
+		border-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .diff-header {
-		background: theme('colors.gray.900');
-		border-bottom-color: theme('colors.gray.700');
+		background: var(--color-gray-900);
+		border-bottom-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .diff-title {
-		color: theme('colors.gray.100');
+		color: var(--color-gray-100);
 	}
 
 	:global(.dark) .diff-summary {
-		color: theme('colors.gray.400');
+		color: var(--color-gray-400);
 	}
 
 	:global(.dark) .close-button:hover {
-		background: theme('colors.gray.700');
-		color: theme('colors.gray.300');
+		background: var(--color-gray-700);
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .version-headers {
-		background: theme('colors.gray.800');
-		border-bottom-color: theme('colors.gray.700');
+		background: var(--color-gray-800);
+		border-bottom-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .version-header.version-a {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.blue.900');
+		background: var(--color-gray-900);
+		border-color: var(--color-blue-900);
 	}
 
 	:global(.dark) .version-header.version-b {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.purple.900');
+		background: var(--color-gray-900);
+		border-color: var(--color-purple-900);
 	}
 
 	:global(.dark) .version-label {
-		color: theme('colors.gray.200');
+		color: var(--color-gray-200);
 	}
 
 	:global(.dark) .version-date {
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 	}
 
 	:global(.dark) .metrics-comparison,
 	:global(.dark) .requirements-section,
 	:global(.dark) .sections-diff {
-		border-bottom-color: theme('colors.gray.700');
+		border-bottom-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .section-title {
-		color: theme('colors.gray.300');
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .metric-card {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.gray.700');
+		background: var(--color-gray-900);
+		border-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .metric-name {
-		color: theme('colors.gray.300');
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .value-label {
-		color: theme('colors.gray.400');
+		color: var(--color-gray-400);
 	}
 
 	:global(.dark) .value-number {
-		color: theme('colors.gray.200');
+		color: var(--color-gray-200);
 	}
 
 	:global(.dark) .metric-delta {
-		border-top-color: theme('colors.gray.700');
+		border-top-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .requirement-item {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.green.900');
-		color: theme('colors.gray.300');
+		background: var(--color-gray-900);
+		border-color: var(--color-green-900);
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .stat-item.stat-added {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.green.900');
-		color: theme('colors.green.400');
+		background: var(--color-gray-900);
+		border-color: var(--color-green-900);
+		color: var(--color-green-400);
 	}
 
 	:global(.dark) .stat-item.stat-changed {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.yellow.900');
-		color: theme('colors.yellow.400');
+		background: var(--color-gray-900);
+		border-color: var(--color-yellow-900);
+		color: var(--color-yellow-400);
 	}
 
 	:global(.dark) .stat-item.stat-removed {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.red.900');
-		color: theme('colors.red.400');
+		background: var(--color-gray-900);
+		border-color: var(--color-red-900);
+		color: var(--color-red-400);
 	}
 
 	:global(.dark) .stat-item.stat-identical {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.gray.700');
-		color: theme('colors.gray.400');
+		background: var(--color-gray-900);
+		border-color: var(--color-gray-700);
+		color: var(--color-gray-400);
 	}
 
 	:global(.dark) .error-state {
-		background: theme('colors.gray.800');
-		border-color: theme('colors.gray.700');
+		background: var(--color-gray-800);
+		border-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .error-text {
-		color: theme('colors.gray.300');
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .error-subtext {
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 	}
 </style>

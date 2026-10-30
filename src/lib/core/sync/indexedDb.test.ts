@@ -28,7 +28,8 @@ import {
 	type PendingOperation,
 	type ConflictResolution,
 } from './indexedDb';
-import type { Workspace, ContextBlock, Run, PromptTemplate } from '../types';
+import type { Workspace, ContextBlock } from '../types';
+import type { Run, PromptTemplate } from '../api/dataforgeClient.enhanced';
 
 describe('IndexedDB Offline Storage', () => {
 	beforeEach(async () => {
@@ -165,12 +166,15 @@ describe('IndexedDB Offline Storage', () => {
 	describe('Context Block Store CRUD', () => {
 		const mockBlock: ContextBlock = {
 			id: 'block-1',
-			workspace_id: 'ws-1',
 			title: 'Test Block',
+			kind: 'project',
 			content: 'Test content',
-			category: 'general',
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			description: 'Test block',
+			tags: ['general'],
+			isActive: true,
+			source: 'workspace',
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		};
 
 		it('should save context block', async () => {
@@ -265,13 +269,17 @@ describe('IndexedDB Offline Storage', () => {
 	describe('Prompt Template Store CRUD', () => {
 		const mockTemplate: PromptTemplate = {
 			id: 'template-1',
-			workspace_id: 'ws-1',
+			workspaceId: 'ws-1',
 			name: 'Test Template',
+			description: 'Greets by name',
 			template: 'Hello {name}',
-			category: 'greeting',
 			variables: ['name'],
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			category: 'greeting',
+			tags: ['greeting'],
+			isPublic: false,
+			createdBy: 'user-1',
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		};
 
 		it('should save prompt template', async () => {
@@ -480,11 +488,14 @@ describe('IndexedDB Offline Storage', () => {
 		it('should mark conflict as resolved', async () => {
 			await conflictsStore.save(mockConflict);
 
-			const updated = { ...mockConflict, resolved: true };
+			const updated = {
+				...mockConflict,
+				resolvedAt: new Date().toISOString(),
+			};
 			await conflictsStore.save(updated);
 
 			const retrieved = await conflictsStore.get(mockConflict.id);
-			expect(retrieved?.resolved).toBe(true);
+			expect(retrieved?.resolvedAt).toBeDefined();
 		});
 
 		it('should delete conflict', async () => {

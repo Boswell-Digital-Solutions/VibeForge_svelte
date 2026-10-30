@@ -42,3 +42,38 @@
   contract the service actually implements.
 - Scope: open. Whether a large quality gap should override cost and speed is
   an owner decision, not a test fix.
+
+## 2026-10-30 - Build pulls a Node-only module into the browser bundle (open)
+
+- What is wrong: `pnpm build` fails with `"basename" is not exported by
+  "__vite-browser-external"` from
+  `src/lib/refactoring/analyzer/FileSystemScanner.ts`, which imports
+  `fs/promises` and `path`.
+- Chain: `AnalyzeStep.svelte`, `PlanStep.svelte`, `ExecuteStep.svelte` and
+  `CompleteStep.svelte` value-import `RefactoringAutomation` from
+  `$lib/refactoring`. That barrel re-exports `FileSystemScanner`, so a
+  filesystem module lands in the client graph. The type-only imports of
+  `$lib/refactoring/types/*` are erased and are not part of this.
+- Why it surfaced now: the Build job `needs` the code jobs, so it was skipped
+  for as long as they failed. With lint, types and unit tests green it runs,
+  and this is the first error it reaches.
+- Scope: open. The fix is a module-boundary decision for the owner: either the
+  refactoring analyzer moves behind Tauri IPC and the components call that, or
+  the barrel stops re-exporting the filesystem-backed classes. Polyfilling
+  `path` would only hide that `readdir`/`readFile` cannot run in a browser.
+- Not blocking lint, type check or the unit suite, which are green.
+
+## 2026-10-30 - Tailwind v4 migration was incomplete in component styles (closed)
+
+- What was wrong: `pnpm build` failed on `Cannot apply unknown utility class
+  font-mono` and `Could not resolve value for theme function:
+  theme(colors.gray.100)`.
+- Root cause: the repository is on Tailwind 4, where a component `<style>`
+  block is compiled on its own. A theme-backed utility used through `@apply`
+  needs `@reference "tailwindcss"`, and the v3 `theme('colors.a.b')` path was
+  replaced by the `--color-a-b` CSS variable.
+- Fix: `@reference "tailwindcss"` added to the nine component style blocks that
+  use `@apply`, and 258 `theme('colors.*')` calls rewritten to
+  `var(--color-*)` across five components.
+- Scope: closed. Both Tailwind errors are gone; the build now reaches the
+  bundling issue recorded above.

@@ -24,20 +24,23 @@ const mockSessionA: PlanningSession = {
 		type: 'default',
 		name: 'Default Planning',
 		description: 'Balanced 4-stage workflow',
+		estimatedDuration: 30,
+		maxIterations: 3,
 		stages: []
 	},
 	stages: [
 		{
 			id: 'stage_0',
-			type: 'initial',
+			index: 0,
 			config: {} as any,
 			status: 'completed',
 			input: 'Implement user authentication',
 			output:
 				'## Overview\nComplete authentication system.\n\n## Phase 1\nSetup infrastructure.\n\n## Acceptance Criteria\nUsers can login.\n\n## Testing\nUnit tests for auth.',
-			context: [],
-			tokens: { input: 100, output: 200, total: 300 },
-			cost: 0.015,
+			result: null,
+			error: null,
+			previousContext: [],
+			userInjections: [],
 			startedAt: new Date('2025-01-01T10:00:00Z'),
 			completedAt: new Date('2025-01-01T10:02:00Z')
 		}
@@ -81,20 +84,23 @@ const mockSessionB: PlanningSession = {
 		type: 'quick',
 		name: 'Quick Planning',
 		description: 'Fast 2-stage workflow',
+		estimatedDuration: 30,
+		maxIterations: 3,
 		stages: []
 	},
 	stages: [
 		{
 			id: 'stage_0',
-			type: 'initial',
+			index: 0,
 			config: {} as any,
 			status: 'completed',
 			input: 'Implement user authentication',
 			output:
 				'## Overview\nBasic auth system.\n\n## Implementation\nUse OAuth.\n\n## Testing\nManual testing.',
-			context: [],
-			tokens: { input: 80, output: 150, total: 230 },
-			cost: 0.0115,
+			result: null,
+			error: null,
+			previousContext: [],
+			userInjections: [],
 			startedAt: new Date('2025-01-01T11:00:00Z'),
 			completedAt: new Date('2025-01-01T11:01:30Z')
 		}
@@ -452,7 +458,7 @@ describe('PlanComparisonService', () => {
 		});
 
 		it('should handle sessions without completion time', () => {
-			const sessionNoCompletion = { ...mockSessionA, completedAt: undefined };
+			const sessionNoCompletion = { ...mockSessionA, completedAt: null };
 			const comparison = service.comparePlans(sessionNoCompletion, mockSessionB);
 			expect(comparison.metricsComparison.sessionA.durationMs).toBe(0);
 		});
