@@ -32,6 +32,7 @@ import type {
   McpSchemaProperty,
   McpToolInputSchema,
 } from '$lib/core/types';
+import { DATAFORGE_URL, NEUROFORGE_URL } from './endpoints';
 
 // ============================================================================
 // PROTOCOL -> DOMAIN CONVERSION
@@ -129,7 +130,7 @@ export async function listServers(
       description: 'Knowledge base queries and context management',
       version: '1.0.0',
       status: 'connected',
-      endpoint: 'http://localhost:8001/mcp',
+      endpoint: `${DATAFORGE_URL}/mcp`,
       capabilities: {
         supportsToolDiscovery: true,
         supportsStreaming: false,
@@ -142,7 +143,7 @@ export async function listServers(
       description: 'Model routing and execution',
       version: '1.0.0',
       status: 'connected',
-      endpoint: 'http://localhost:8000/mcp',
+      endpoint: `${NEUROFORGE_URL}/mcp`,
       capabilities: {
         supportsToolDiscovery: true,
         supportsStreaming: true,

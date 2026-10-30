@@ -10,6 +10,7 @@ import type {
 	McpTool,
 	McpConnectionStatus
 } from './types';
+import { DATAFORGE_URL, NEUROFORGE_URL } from '../api/endpoints';
 
 export interface ManagedServer {
 	id: string;
@@ -36,7 +37,7 @@ export class McpClientManager {
 	// ============================================================================
 
 	private addDefaultServers(): void {
-		// DataForge MCP Server (http://localhost:8001/mcp)
+		// DataForge MCP Server, at DATAFORGE_URL + /mcp
 		this.registerServer({
 			id: 'mcp_dataforge',
 			name: 'DataForge MCP',
@@ -44,14 +45,14 @@ export class McpClientManager {
 			config: {
 				serverName: 'DataForge',
 				transport: 'http',
-				url: 'http://localhost:8001/mcp',
+				url: `${DATAFORGE_URL}/mcp`,
 				autoReconnect: true,
 				reconnectInterval: 5000,
 				timeout: 30000
 			}
 		});
 
-		// NeuroForge MCP Server (http://localhost:8000/mcp)
+		// NeuroForge MCP Server, at NEUROFORGE_URL + /mcp
 		this.registerServer({
 			id: 'mcp_neuroforge',
 			name: 'NeuroForge MCP',
@@ -59,7 +60,7 @@ export class McpClientManager {
 			config: {
 				serverName: 'NeuroForge',
 				transport: 'http',
-				url: 'http://localhost:8000/mcp',
+				url: `${NEUROFORGE_URL}/mcp`,
 				autoReconnect: true,
 				reconnectInterval: 5000,
 				timeout: 30000

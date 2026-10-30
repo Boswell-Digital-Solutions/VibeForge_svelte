@@ -13,9 +13,10 @@ import type {
   ApiResponse,
   PaginatedResponse,
 } from "$lib/core/types";
+import { DATAFORGE_URL } from "./endpoints";
 
 const DATAFORGE_BASE_URL =
-  import.meta.env.VITE_DATAFORGE_URL || "http://localhost:8001";
+  DATAFORGE_URL;
 const API_VERSION = "v1";
 
 function getApiUrl(path: string): string {

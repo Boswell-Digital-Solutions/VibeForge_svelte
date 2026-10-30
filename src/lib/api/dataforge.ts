@@ -20,13 +20,14 @@ import type {
   ListRunsResponse,
   DataForgeApiError,
 } from "$lib/types/dataforge";
+import { DATAFORGE_API_V1 } from "$lib/core/api/endpoints";
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
 const API_BASE =
-  import.meta.env.VITE_DATAFORGE_API_BASE || "https://localhost:8001/api/v1";
+  DATAFORGE_API_V1;
 const API_KEY = import.meta.env.VITE_VIBEFORGE_API_KEY || "vf-dev-key";
 
 // ============================================================================

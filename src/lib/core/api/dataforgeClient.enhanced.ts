@@ -18,13 +18,14 @@ import type {
   ApiResponse,
   PaginatedResponse,
 } from "$lib/core/types";
+import { DATAFORGE_URL } from "./endpoints";
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
 const DATAFORGE_BASE_URL =
-  import.meta.env.VITE_DATAFORGE_URL || "http://localhost:8001";
+  DATAFORGE_URL;
 const API_VERSION = "v1";
 const DEFAULT_TIMEOUT = 10000; // 10 seconds
 const MAX_RETRIES = 3;

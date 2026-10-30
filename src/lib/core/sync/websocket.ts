@@ -14,6 +14,7 @@
 import type { Workspace, ContextBlock } from "$lib/core/types";
 import type { Run, PromptTemplate } from "$lib/core/api/dataforgeClient.enhanced";
 import * as indexedDb from "./indexedDb";
+import { DATAFORGE_WS_URL } from "../api/endpoints";
 
 // ============================================================================
 // TYPES
@@ -53,9 +54,7 @@ export class WebSocketSync {
   private isConnected = false;
 
   constructor(url?: string) {
-    const DATAFORGE_WS_URL =
-      url || import.meta.env.VITE_DATAFORGE_WS_URL || "ws://localhost:8001/ws";
-    this.url = DATAFORGE_WS_URL;
+    this.url = url || DATAFORGE_WS_URL;
 
     // Create BroadcastChannel for tab synchronization
     this.openBroadcastChannel();

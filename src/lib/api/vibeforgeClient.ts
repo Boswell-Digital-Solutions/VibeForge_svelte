@@ -27,13 +27,14 @@ import type {
   PaginatedResponse,
   ApiError,
 } from "$lib/types/learning";
+import { DATAFORGE_URL } from "$lib/core/api/endpoints";
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
 const API_BASE =
-  import.meta.env.VITE_DATAFORGE_API_BASE || "http://localhost:8001";
+  DATAFORGE_URL;
 const LEARNING_PATH = "/api/vibeforge";
 const API_KEY = import.meta.env.VITE_VIBEFORGE_API_KEY || "vf-dev-key";
 

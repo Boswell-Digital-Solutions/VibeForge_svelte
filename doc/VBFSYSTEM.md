@@ -189,6 +189,51 @@ Data model, persistence, and schema migration posture.
 
 External integrations, upstream services, and wire contracts.
 
+## Service endpoints
+
+One variable configures one service. `src/lib/core/api/endpoints.ts` is the only
+place that reads an endpoint variable. Every other module imports a constant
+from it.
+
+| Variable | Default | Service |
+|---|---|---|
+| `VITE_NEUROFORGE_URL` | `http://localhost:8000` | NeuroForge |
+| `VITE_DATAFORGE_URL` | `http://localhost:8001` | DataForge |
+| `VITE_LICENSE_API_URL` | `http://localhost:8002/license` | License validation |
+
+Set an origin only. Do not add a path or a trailing slash.
+The module strips a trailing slash and derives the rest:
+
+| Constant | Derived from |
+|---|---|
+| `NEUROFORGE_API_V1` | `NEUROFORGE_URL` plus `/api/v1` |
+| `DATAFORGE_API_V1` | `DATAFORGE_URL` plus `/api/v1` |
+| `NEUROFORGE_WS_URL` | `NEUROFORGE_URL` with the `ws` scheme |
+| `DATAFORGE_WS_URL` | `DATAFORGE_URL` with the `ws` scheme, plus `/ws` |
+
+A websocket URL is derived rather than configured, so the host and the port
+cannot differ between the two protocols.
+
+The MCP endpoints are also derived. NeuroForge answers at `NEUROFORGE_URL` plus
+`/mcp` and DataForge at `DATAFORGE_URL` plus `/mcp`.
+
+Defaults follow the port map in the Forge port registry, which NeuroForge's own
+`.env.example` states: 8000 for NeuroForge, 8001 for DataForge, 8002 for Rake.
+NeuroForge serves `/api/v1/auth/login/json`, so authentication uses
+`NEUROFORGE_URL`.
+
+### What stays open
+
+The license default targets port 8002, which the registry assigns to Rake. No
+service in the ecosystem implements `/license/validate`. The value is preserved
+rather than corrected, because which service owns license validation is an open
+question. See `docs/KNOWN_ISSUES.md`.
+
+No DataForge route answers `/ws` today, so a sync connection is refused.
+
+The application holds no reference to NeuronForge, so there is no local
+inference lane to configure. See `docs/KNOWN_ISSUES.md`.
+
 ## Forge Yellowjacket support agent
 
 VibeForge points internal agent-workcell planning at the Forge public app support

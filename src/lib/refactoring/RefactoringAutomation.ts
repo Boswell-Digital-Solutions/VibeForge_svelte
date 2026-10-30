@@ -15,6 +15,7 @@ import { RefactoringPlanner, type PlannerConfig } from './planner/RefactoringPla
 import { TaskExecutor, type ExecutorConfig } from './executor/TaskExecutor';
 import { LearningLoop } from './executor/LearningLoop';
 import { balancedStandards } from './standards/presets';
+import { NEUROFORGE_URL } from '$lib/core/api/endpoints';
 
 export interface AutomationConfig {
 	/**
@@ -66,7 +67,7 @@ export class RefactoringAutomation {
 			createCheckpoints: true,
 			autoVerifyGates: true,
 			defaultStandards: balancedStandards,
-			neuroforgeUrl: 'http://localhost:8000/api',
+			neuroforgeUrl: `${NEUROFORGE_URL}/api`,
 			...config
 		};
 

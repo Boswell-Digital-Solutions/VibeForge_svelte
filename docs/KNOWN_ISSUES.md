@@ -188,11 +188,11 @@
   push contains.
 - Fix: the part is corrected. The rule now states both cases.
 
-## 2026-10-30 - Service endpoint configuration is contradictory (open)
+## 2026-10-30 - Service endpoint configuration was contradictory (closed)
 
-- What is wrong: the application cannot be pointed at one NeuroForge with one
-  setting. Three variable names are read, and the same name carries different
-  defaults in different modules.
+- What was wrong: the application could not be pointed at one NeuroForge with
+  one setting. Three variable names were read, and the same name carried
+  different defaults in different modules.
 
 | Variable | Default | Read by |
 |---|---|---|
@@ -203,25 +203,62 @@
 | `VITE_NEUROFORGE_API_BASE` | `:8000/api/v1` | `api/neuroforge.ts` |
 | `VITE_NEUROFORGE_API_BASE` | `:8002/api/v1` | `api/research.ts` |
 
-- `.env.example` declares a fourth combination,
-  `VITE_NEUROFORGE_API_BASE=http://localhost:8002/api/v1`.
-- DataForge is tangled the same way. `teamStore.svelte.ts` puts DataForge on
-  `:8000` and NeuroForge on `:8001`, which is the reverse of every other
-  module. `api/dataforge.ts` defaults to `https://localhost:8001/api/v1`, and
-  TLS cannot reach a local HTTP service.
-- `core/stores/license.svelte.ts` hardcodes `http://localhost:8002/license`
-  with no variable at all.
-- Per the ecosystem port registry NeuroForge is 8000, DataForge is 8001 and
-  8002 belongs to Rake. Confirm this against the registry before renumbering;
-  the reading comes from the sibling repositories' own documents.
-- Effect on the release gate: `.github/workflows/release-gate.yml` sets
-  `VITE_NEUROFORGE_URL`, which is what `auth.ts` reads, so the gate does cover
-  the authentication path. It does not cover insights or research, because
-  those modules read other names. Consolidate the configuration before
-  widening the gate, or it will report testing one endpoint while other
-  modules reach their own defaults.
-- Scope: open. This is a configuration change and needs an owner decision on
-  which name is canonical.
+- DataForge was tangled the same way. `teamStore.svelte.ts` put DataForge on
+  `:8000` and NeuroForge on `:8001`, the reverse of every other module, and
+  `api/dataforge.ts` defaulted to `https://localhost:8001`, which cannot reach a
+  local HTTP service. `core/stores/license.svelte.ts` hardcoded its endpoint
+  with no variable.
+- Fix: `src/lib/core/api/endpoints.ts` is now the only module that reads an
+  endpoint variable. Three variables remain: `VITE_NEUROFORGE_URL`,
+  `VITE_DATAFORGE_URL` and `VITE_LICENSE_API_URL`. Versioned paths, websocket
+  URLs and MCP URLs are derived, so a host and a port cannot differ between
+  protocols. The duplicate names are removed outright, with no alias and no
+  fallback.
+- Ground truth for the defaults: NeuroForge's own `.env.example` carries the
+  Forge port registry map, 8000 for NeuroForge, 8001 for DataForge, 8002 for
+  Rake, and `neuroforge_backend/auth_router.py` serves `/login/json`. The
+  authentication default of `:8002` was therefore pointing at Rake, which does
+  not serve authentication.
+- `src/tests/stores/teamStore.test.ts` asserted the swap: it expected teams on
+  `:8000` and insights on `:8001`, while its own test names said the opposite.
+  It now asserts against the canonical constants, which still catches a caller
+  swap but does not break when a default changes.
+- Verified at run time, not by reading: a browser probe recorded authentication
+  and the workbench on `:8000`, the two MCP endpoints on `:8000` and `:8001`,
+  and nothing on an unexpected port.
+- Out of scope deliberately: `core/utils/demoData.ts` keeps literal endpoints,
+  because it is static seed content, and the `architecture-patterns` samples
+  keep theirs, because they are code shown to the user rather than
+  configuration.
+- What stays open: the license endpoint still targets `:8002`, which no service
+  implements. See the entry below.
+
+## 2026-10-30 - No service implements license validation (open)
+
+- What is wrong: `core/stores/license.svelte.ts` posts to
+  `VITE_LICENSE_API_URL`, whose default is `http://localhost:8002/license`. The
+  port registry assigns 8002 to Rake, and Rake has no license route. No service
+  in the ecosystem implements `/license/validate`: ForgeCustomer owns licensing
+  and has no such route, and Forge_Command has only an administrative license
+  mutation at `PATCH /admin/users/{id}/license`.
+- Effect: license validation always fails. The probe recorded
+  `License validation error: TypeError: Failed to fetch`.
+- The endpoint is now configurable rather than hardcoded, and its value is
+  preserved rather than corrected, because guessing an owner would be worse
+  than a visible failure.
+- Scope: open. It needs a decision on which service owns license validation.
+
+## 2026-10-30 - Declared feature flags that nothing reads (open)
+
+- What is wrong: `.env.example` declares `VITE_ENABLE_CONTEXT_SEARCH`,
+  `VITE_ENABLE_MODEL_COMPARISON`, `VITE_ENABLE_RUN_HISTORY`,
+  `VITE_LOG_API_CALLS` and `VITE_DEBUG_INTEGRATION`. No code reads any of them.
+  `VITE_PUBLIC_API_BASE_URL` was also declared and unread; it is removed, because
+  it named an endpoint.
+- The file now states that the section is declaration only, so the flags do not
+  look functional.
+- Scope: open. Either implement them or remove them. That is a product decision
+  rather than a configuration fix.
 
 ## 2026-10-30 - No local inference lane exists in the application (open)
 

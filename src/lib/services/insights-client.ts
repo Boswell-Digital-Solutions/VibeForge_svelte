@@ -18,9 +18,10 @@ import type {
   PatternCategory,
   TrendType,
 } from '$lib/types/insights';
+import { NEUROFORGE_URL } from '$lib/core/api/endpoints';
 
 // API base URL
-const API_BASE_URL = import.meta.env.VITE_NEUROFORGE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = NEUROFORGE_URL;
 
 // ============================================================================
 // Error Handling

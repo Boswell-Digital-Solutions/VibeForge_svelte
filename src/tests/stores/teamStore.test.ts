@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { teamStore } from "$lib/stores/teamStore.svelte";
 import type { Team, TeamMember, TeamInsightsResponse } from "$lib/types/team";
+import { DATAFORGE_URL, NEUROFORGE_URL } from "$lib/core/api/endpoints";
 
 // Mock fetch globally
 global.fetch = vi.fn();
@@ -393,8 +394,11 @@ describe("Team Store", () => {
 
       await teamStore.fetchTeams();
 
+      // Asserted against the canonical constant rather than a literal port.
+      // The literals here were swapped: teams were expected on NeuroForge's
+      // port and insights on DataForge's.
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("http://localhost:8000"),
+        expect.stringContaining(DATAFORGE_URL),
         expect.objectContaining({
           credentials: "include",
         })
@@ -421,7 +425,7 @@ describe("Team Store", () => {
       await teamStore.fetchInsights(1);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("http://localhost:8001"),
+        expect.stringContaining(NEUROFORGE_URL),
         expect.objectContaining({
           credentials: "include",
         })
