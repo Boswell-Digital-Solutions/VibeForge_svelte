@@ -119,14 +119,20 @@ test.describe('Quick Create - Validation', () => {
   });
 
   test('should require project name', { tag: '@smoke' }, async ({ page }) => {
-    // Clear the project name field
+    // Every other field must be valid first. isValid also requires a non-empty
+    // output path, which starts empty, so asserting the disabled state without
+    // filling the path proves nothing about the name: the button is already
+    // disabled, and stays disabled even with a valid name.
+    await page.fill('#qc-path', '/tmp/test-projects');
     await page.fill('#qc-name', '');
 
-    // Create button should be disabled without name
     const createButton = page.locator('button:has-text("Create")');
-
-    // Try to submit without name
     await expect(createButton).toBeDisabled({ timeout: 2000 });
+
+    // The name is the discriminator: supplying one enables the button, so the
+    // assertion above is attributable to the name and not to another field.
+    await page.fill('#qc-name', 'QuickProject');
+    await expect(createButton).toBeEnabled({ timeout: 3000 });
   });
 
   test('should enable Create button when form is valid', async ({ page }) => {

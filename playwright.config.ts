@@ -92,6 +92,15 @@ export default defineConfig({
       testDir: './tests/e2e-real-auth',
       use: {
         ...devices['Desktop Chrome'],
+        // This lane types a real credential into the form. A Playwright trace
+        // records action parameters verbatim, including the value passed to
+        // page.fill, and the HTML reporter copies the trace into
+        // playwright-report/, which the release gate uploads for 30 days.
+        // GitHub masks secrets in logs, never in artifacts. So the diagnostics
+        // are off here, and only here: the hermetic lanes keep theirs.
+        trace: 'off',
+        video: 'off',
+        screenshot: 'off',
       },
     },
   ],

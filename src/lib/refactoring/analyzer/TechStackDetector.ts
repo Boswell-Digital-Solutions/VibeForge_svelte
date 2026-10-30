@@ -37,9 +37,10 @@ export class TechStackDetector {
 	 * Detects framework from package.json and file structure
 	 */
 	private async detectFramework(rootPath: string, files: FileInfo[]): Promise<Framework> {
+		const fs = await analyzerFs();
+
 		try {
 			const packageJsonPath = join(rootPath, 'package.json');
-			const fs = await analyzerFs();
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
 			const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
 
@@ -97,9 +98,10 @@ export class TechStackDetector {
 		rootPath: string,
 		files: FileInfo[]
 	): Promise<import('../types/analysis').StateManagement> {
+		const fs = await analyzerFs();
+
 		try {
 			const packageJsonPath = join(rootPath, 'package.json');
-			const fs = await analyzerFs();
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
 			const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
 
@@ -154,9 +156,10 @@ export class TechStackDetector {
 	private async detectDependencies(
 		rootPath: string
 	): Promise<{ name: string; version: string; type: 'dependency' | 'devDependency' }[]> {
+		const fs = await analyzerFs();
+
 		try {
 			const packageJsonPath = join(rootPath, 'package.json');
-			const fs = await analyzerFs();
 			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
 
 			const dependencies: { name: string; version: string; type: 'dependency' | 'devDependency' }[] =

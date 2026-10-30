@@ -31,7 +31,7 @@ const accountClass = process.env.E2E_REAL_AUTH_ACCOUNT_CLASS ?? '';
  * What the application under test is pointed at. `src/lib/auth.ts` reads
  * VITE_NEUROFORGE_URL, so the dev server must have been started with the same
  * value. Without this check the page could be talking to the default
- * localhost:8002 while this spec reported that it had tested a real endpoint.
+ * default endpoint while this spec reported that it had tested a real one.
  */
 const appEndpoint = process.env.VITE_NEUROFORGE_URL ?? '';
 

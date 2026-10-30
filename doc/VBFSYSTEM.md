@@ -219,8 +219,9 @@ Never add a trailing slash. The module strips one and derives the rest:
 A websocket URL is derived rather than configured, so the host and the port
 cannot differ between the two protocols.
 
-The MCP endpoints are also derived. NeuroForge answers at `NEUROFORGE_URL` plus
-`/mcp` and DataForge at `DATAFORGE_URL` plus `/mcp`.
+The MCP client URLs are also derived, from `NEUROFORGE_URL` plus `/mcp` and
+`DATAFORGE_URL` plus `/mcp`. Neither service implements that route today, so
+both connections fail. See `docs/KNOWN_ISSUES.md`.
 
 Defaults follow the port map in the Forge port registry, which NeuroForge's own
 `.env.example` states: 8000 for NeuroForge, 8001 for DataForge, 8002 for Rake.
@@ -234,7 +235,8 @@ service in the ecosystem implements `/license/validate`. The value is preserved
 rather than corrected, because which service owns license validation is an open
 question. See `docs/KNOWN_ISSUES.md`.
 
-No DataForge route answers `/ws` today, so a sync connection is refused.
+No DataForge route answers `/ws` today, so a sync connection is refused, and
+neither service answers `/mcp`.
 
 The application holds no reference to NeuronForge, so there is no local
 inference lane to configure. See `docs/KNOWN_ISSUES.md`.

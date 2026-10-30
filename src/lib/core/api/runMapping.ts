@@ -9,7 +9,29 @@
 import type { Run } from '$lib/core/api/dataforgeClient.enhanced';
 import type { PromptRun, RunStatus } from '$lib/core/types';
 
-/** The API narrows status to four states; the domain carries three more aliases. */
+/**
+ * The API narrows status to four states; the domain carries three more aliases.
+ *
+ * `toDomainStatus` is the inverse, so a run survives a save and a reload with
+ * the spelling the stores match on. Without it a run created as `success`
+ * persisted as `completed` and came back as `completed`, which the status bar
+ * and the history panel filter do not match.
+ *
+ * One direction is lossy and cannot be otherwise: `error` and `cancelled` both
+ * narrow to `failed`, so a reloaded run reads as `error`. The distinction is
+ * lost at the API boundary, not here.
+ */
+function toDomainStatus(status: Run['status']): RunStatus {
+  switch (status) {
+    case 'completed':
+      return 'success';
+    case 'failed':
+      return 'error';
+    default:
+      return status;
+  }
+}
+
 function toApiStatus(status: RunStatus): Run['status'] {
   switch (status) {
     case 'success':
@@ -30,7 +52,7 @@ export function toPromptRun(run: Run): PromptRun {
     promptSnapshot: run.promptText,
     contextBlockIds: run.contextBlockIds,
     modelId: run.model,
-    status: run.status,
+    status: toDomainStatus(run.status),
     startedAt: run.createdAt,
     createdAt: run.createdAt,
     completedAt: run.completedAt,

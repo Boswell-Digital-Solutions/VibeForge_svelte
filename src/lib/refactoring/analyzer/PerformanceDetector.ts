@@ -75,9 +75,15 @@ export class PerformanceDetector {
 		}
 
 		// Detect array mutation inside loop bodies. The mutation normally sits on a
-		// line below the loop header, so track depth instead of demanding both on
-		// the same line.
-		let mutationLoopDepth = 0;
+		// line below the loop header, so track where each body opens instead of
+		// demanding both on the same line.
+		//
+		// Brace counting is load-bearing. Matching only a bare `}` never closed a
+		// callback body, which ends `});`, and a single-line `.map(...)` opened a
+		// level that nothing closed, so the depth leaked over the rest of the file
+		// and reported mutations that were in no loop at all.
+		let braceDepth = 0;
+		const loopBodyDepths: number[] = [];
 
 		lines.forEach((line, index) => {
 			const trimmed = line.trim();
@@ -88,13 +94,28 @@ export class PerformanceDetector {
 				/\.map\(/.test(trimmed);
 			const hasArrayMethod = /\.(?:push|concat|splice|shift|unshift)\(/.test(trimmed);
 
-			if (opensLoop) {
-				mutationLoopDepth++;
-			} else if (trimmed === '}' && mutationLoopDepth > 0) {
-				mutationLoopDepth--;
+			const opens = (line.match(/\{/g) ?? []).length;
+			const closes = (line.match(/\}/g) ?? []).length;
+
+			// Close every body this line ends before judging the line itself.
+			const depthAfterCloses = braceDepth - closes;
+			while (
+				loopBodyDepths.length > 0 &&
+				depthAfterCloses <= loopBodyDepths[loopBodyDepths.length - 1]
+			) {
+				loopBodyDepths.pop();
 			}
 
-			if (mutationLoopDepth > 0 && hasArrayMethod) {
+			const insideLoopBody = loopBodyDepths.length > 0;
+
+			// A loop whose body opens on this line governs the lines below it, not
+			// this one. A single-line loop opens no body and governs nothing.
+			if (opensLoop && opens > closes) {
+				loopBodyDepths.push(braceDepth);
+			}
+			braceDepth += opens - closes;
+
+			if (insideLoopBody && hasArrayMethod) {
 				issues.push({
 					id: `loop-array-mutation-${filename}-${index}`,
 					severity: 'info',

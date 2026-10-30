@@ -9,10 +9,14 @@
 # cannot pass this gate on an unconfigured runner. That is deliberate, not a
 # broken workflow.
 #
-# The four secrets below must name an ISOLATED TEST ACCOUNT on a test
-# NeuroForge deployment. Do not supply production credentials. The spec
-# refuses to run unless the account class is declared `isolated-test`, and it
-# only performs a login and reads local storage.
+# The secrets below must name an ISOLATED TEST ACCOUNT on a test NeuroForge
+# deployment. Do not supply production credentials. The spec only performs a
+# login and reads local storage; it writes nothing.
+#
+# `E2E_REAL_AUTH_ACCOUNT_CLASS` must be set to `isolated-test` in the secret
+# store, or the gate fails closed. Treat that as the operator's attestation
+# about the account, not as verification of it. No check here can inspect the
+# credential and determine whether the account is really isolated.
 #
 # Authorized by the operator ruling on PR #13, conditions 4 and 5.
 #
@@ -85,9 +89,13 @@ jobs:
           # Turns a missing or inconsistent setting into a failure. Without
           # this the spec would skip, and a release would pass unverified.
           E2E_REAL_AUTH_REQUIRED: 'true'
-          # The spec refuses any other value. It records that the operator
-          # declared this account an isolated test account.
-          E2E_REAL_AUTH_ACCOUNT_CLASS: 'isolated-test'
+          # Taken from the secret store, alongside the credentials it
+          # describes, rather than written here. A literal in this file would
+          # be the workflow attesting about itself: the check would always
+          # pass and would never inspect the credential. It is still an
+          # operator attestation, not verification -- nothing here can tell
+          # whether the account behind the secrets is really isolated.
+          E2E_REAL_AUTH_ACCOUNT_CLASS: ${{ secrets.E2E_REAL_AUTH_ACCOUNT_CLASS }}
           E2E_REAL_AUTH_URL: ${{ secrets.E2E_REAL_AUTH_URL }}
           E2E_REAL_AUTH_USERNAME: ${{ secrets.E2E_REAL_AUTH_USERNAME }}
           E2E_REAL_AUTH_PASSWORD: ${{ secrets.E2E_REAL_AUTH_PASSWORD }}

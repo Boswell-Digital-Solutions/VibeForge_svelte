@@ -127,8 +127,9 @@ export class TypeSafetyCollector {
 	 * Checks if tsconfig.json exists
 	 */
 	private async checkTsConfig(rootPath: string): Promise<boolean> {
+		const fs = await analyzerFs();
+
 		try {
-			const fs = await analyzerFs();
 			await fs.readFile(join(rootPath, 'tsconfig.json'), 'utf-8');
 			return true;
 		} catch {
@@ -140,8 +141,9 @@ export class TypeSafetyCollector {
 	 * Checks if strict mode is enabled in tsconfig
 	 */
 	private async checkStrictMode(rootPath: string): Promise<boolean> {
+		const fs = await analyzerFs();
+
 		try {
-			const fs = await analyzerFs();
 			const content = await fs.readFile(join(rootPath, 'tsconfig.json'), 'utf-8');
 			const config = JSON.parse(content);
 			return config.compilerOptions?.strict === true;

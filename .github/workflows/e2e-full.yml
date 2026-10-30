@@ -15,8 +15,10 @@
 # could not pass.
 #
 # Four shards per browser, and a 60-minute cap, so a run finishes and the
-# reports are complete. Before the split this suite was capped at 30 minutes
-# and reported nothing.
+# reports are complete. This workflow was previously two shards at 45 minutes,
+# which a measured shard time of about 14 minutes plus CI's two retries would
+# have overrun. The 30-minute cap that reported nothing was ci.yml's, on the
+# lane this one replaces.
 
 name: E2E Full Browser Regression
 
@@ -61,7 +63,11 @@ jobs:
         run: pnpm exec playwright install --with-deps ${{ matrix.browser }} chromium
 
       - name: Run E2E tests (sharded)
-        run: pnpm exec playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }}
+        # `--reporter=blob` is required. Playwright does not switch to the blob
+        # reporter on its own when sharding, and the config sets `html`, so
+        # without this no blob-report/ is produced, the upload below captures
+        # nothing, and the merge job fails with "No report files found".
+        run: pnpm exec playwright test --project=${{ matrix.browser }} --shard=${{ matrix.shard }} --reporter=blob
         env:
           CI: true
 

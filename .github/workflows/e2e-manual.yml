@@ -23,7 +23,11 @@ jobs:
   e2e-manual:
     name: E2E Tests - ${{ inputs.browser }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # `browser: all` runs every project unsharded, which needs well over the
+    # 30 minutes this used to allow -- the same cap that made the old
+    # pull-request lane report nothing. For a full sweep with merged reports,
+    # dispatch e2e-full.yml instead; this lane is for one browser at a time.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code

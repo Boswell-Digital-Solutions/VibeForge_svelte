@@ -53,7 +53,7 @@ setup('establish a synthetic session (does not verify NeuroForge authentication)
 
 	// The interception is the whole point of this lane. Without this check a
 	// glob that stopped matching would let the setup pass against whatever
-	// happened to answer on port 8002, and the run would look hermetic.
+	// happened to answer on NeuroForge's port, and the run would look hermetic.
 	expect(
 		loginIntercepted,
 		`the login request was not intercepted; ${LOGIN_ENDPOINT_GLOB} no longer matches the endpoint in src/lib/auth.ts`

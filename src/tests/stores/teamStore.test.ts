@@ -386,6 +386,16 @@ describe("Team Store", () => {
   });
 
   describe("API integration", () => {
+    it("resolves distinct, non-empty service origins", () => {
+      // The assertions below use expect.stringContaining on these constants.
+      // readBaseUrl strips a trailing slash, so VITE_DATAFORGE_URL=/ would
+      // resolve to "" and stringContaining("") would match any URL at all.
+      // Pin that they are present and different before relying on them.
+      expect(DATAFORGE_URL).not.toBe("");
+      expect(NEUROFORGE_URL).not.toBe("");
+      expect(DATAFORGE_URL).not.toBe(NEUROFORGE_URL);
+    });
+
     it("should call DataForge API for teams", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,

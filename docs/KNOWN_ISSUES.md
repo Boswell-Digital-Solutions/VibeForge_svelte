@@ -115,7 +115,7 @@
   `tests/e2e/auth.setup.ts` answers the login request with a synthetic session
   from `tests/e2e/support/syntheticSession.ts`. It asserts the interception
   happened, so a glob that stopped matching cannot pass against whatever
-  answers on port 8002. `tests/e2e/auth-negative.spec.ts` covers the rejection,
+  answers on NeuroForge's port. `tests/e2e/auth-negative.spec.ts` covers the rejection,
   unparseable-body, no-token and unreachable paths in all three browsers.
   `tests/e2e-real-auth/real-auth.spec.ts` is the only spec that authenticates,
   and `.github/workflows/release-gate.yml` is where it is required.
@@ -248,6 +248,80 @@
   preserved rather than corrected, because guessing an owner would be worse
   than a visible failure.
 - Scope: open. It needs a decision on which service owns license validation.
+
+## 2026-10-30 - The route guard is commented out, so every route is open (open)
+
+- What is wrong: `src/routes/+layout.svelte:53-61` carries the comment
+  "TEMPORARILY DISABLED FOR SCAFFOLDING TESTING - bypassing authentication".
+  The `isAuthenticated.subscribe` callback declares `currentPath` and then does
+  nothing; the redirect to `/login` is commented out.
+- There is no alternative guard. No `+layout.ts`, no `+layout.server.ts`, no
+  `hooks.*`, and no `+server.*` exists under `src/routes`. Every route is
+  reachable with no session.
+- Pre-existing. `git diff origin/master..HEAD -- src/routes/` is empty.
+- Consequence for the E2E lanes, stated so it is not overclaimed elsewhere: the
+  hermetic session satisfies Playwright's project dependency and the setup's own
+  assertions. It is not what grants page access, because nothing gates it. The
+  138 specs were blocked by a failing `setup` project, not by an auth wall.
+- Scope: open. Restoring the guard is a scoped change outside the work that
+  found this.
+
+## 2026-10-30 - No service implements the MCP route (open)
+
+- What is wrong: `core/mcp/manager.ts` and `core/api/mcpClient.ts` point two
+  default MCP servers at `NEUROFORGE_URL` plus `/mcp` and `DATAFORGE_URL` plus
+  `/mcp`. Neither service implements that route: a grep for `/mcp` across
+  `NeuroForge/neuroforge_backend/` and `DataForge/app/` finds nothing.
+- The URLs are unchanged from before the endpoint consolidation; what was new
+  was documentation asserting the route exists. That claim came from a browser
+  probe which recorded the requests leaving, not a service answering. The
+  claim is corrected in `.env.example` and
+  `doc/system/40-integrations.md`.
+- This is the third route in this class, with `/license/validate` and `/ws`.
+- Scope: open. It needs a decision on whether these services expose MCP at all.
+
+## 2026-10-30 - The release gate's isolated-account check is an attestation (open)
+
+- What is wrong: `real-auth.spec.ts` refuses to run unless
+  `E2E_REAL_AUTH_ACCOUNT_CLASS` is `isolated-test`. That was described as
+  making the isolated-test-account requirement machine-checked. It is not. The
+  check cannot inspect the credential, and when the value was a literal in
+  `release-gate.yml` the workflow was attesting about itself, so the guard
+  always passed and never examined anything.
+- Partly addressed: the value now comes from the secret store, alongside the
+  credentials it describes, so the attestation is made by whoever holds them.
+  The workflow header and `doc/system/50-operations.md` now call it an
+  attestation rather than verification.
+- Scope: open in the sense that nothing automated can verify the claim. Keep
+  the wording honest rather than adding a check that cannot work.
+
+## 2026-10-30 - A client-written token yields an authenticated session (open)
+
+- What is wrong: `src/lib/auth.ts` never validates a token. `isAuthenticated`
+  (`:103`) is a truthiness check on the stored string; `decodeToken`
+  (`:174-199`) base64-decodes the payload and returns the identity without
+  checking a signature, as its own comment says; `isTokenExpired` (`:204-222`)
+  trusts the token's own `exp`.
+- Effect: anything able to write `localStorage['vibeforge_jwt_token']` yields a
+  client that presents as authenticated with an arbitrary identity and expiry.
+- Pre-existing. The synthetic session used by the hermetic E2E lane is a
+  working demonstration of the property, not its cause.
+- Defensible for a local-first workbench only while real authority stays
+  server-side and nothing treats the decoded claims as an authorization
+  decision. Combined with the disabled route guard above, that condition does
+  not currently hold.
+- Scope: open, and the same owner decision as the licence entry below.
+
+## 2026-10-30 - A shared API key is exposed to the browser (open)
+
+- What is wrong: `VITE_VIBEFORGE_API_KEY` is `VITE_`-prefixed, so Vite inlines
+  it into client JavaScript by definition. It is read at
+  `src/lib/api/dataforge.ts` and `src/lib/api/vibeforgeClient.ts`, and
+  `.env.example` ships the default `vf-dev-key`.
+- Pre-existing, and not changed by the endpoint consolidation, which edited
+  adjacent lines in both files.
+- Scope: open. A key that authenticates to a backend cannot be a browser
+  constant; it needs either a per-user credential or a server-side proxy.
 
 ## 2026-10-30 - Client license state is not entitlement verification (open)
 

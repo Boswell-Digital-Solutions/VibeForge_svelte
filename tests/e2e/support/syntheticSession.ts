@@ -3,7 +3,7 @@
  *
  * WHAT THIS IS: a fabricated session that lets the browser suites start from a
  * signed-in page. The login request never leaves the browser — it is answered
- * by `fulfillSyntheticLogin` below.
+ * by the `page.route` handler in `auth.setup.ts`.
  *
  * WHAT THIS IS NOT: evidence about authentication. Nothing here reaches
  * NeuroForge, so a green hermetic run says nothing about whether real login
