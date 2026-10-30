@@ -1,65 +1,165 @@
 # Known Issues
 
-## 2026-10-30 - The desktop application cannot be built (open)
+## 2026-10-30 - `/_archive/analytics` crashed on render (closed)
 
-- What is wrong: `src-tauri/tauri.conf.json` sets `frontendDist` to
-  `"../build"`. `svelte.config.js` uses `@sveltejs/adapter-auto`, which detects
-  no production environment in this repository and therefore writes no `build/`
-  directory. `pnpm build` prints `Could not detect a supported production
-  environment` and emits only `.svelte-kit/output`.
-- Effect: `cargo build --bin vibeforge` fails with `proc macro panicked ...
-  The frontendDist configuration is set to "../build" but this path doesn't
-  exist`. So does `tauri build`, and so does a bare `cargo test`, because it
-  builds every target. The desktop application has not been buildable.
-- This is pre-existing and predates the local inference lane. It is why the
-  Rust CI job verifies `--lib` only: with a stand-in `build/index.html` in
-  place, the binary compiles with the bridge command registered, so the
-  bridge itself is sound and the missing directory is the whole fault.
-- `ci.yml`'s Build job does not catch it. `pnpm build` exits 0, and the
-  `upload-artifact` step for `build/` defaults to `if-no-files-found: warn`,
-  so it uploads nothing and the job stays green.
-- Fix: decide how the application ships. `@sveltejs/adapter-static` with
-  `pages`/`assets` set to `build` is the usual choice for a Tauri frontend and
-  satisfies `frontendDist`. Pointing `frontendDist` at
-  `.svelte-kit/output/client` instead is a smaller change but ships an
-  unadapted bundle whose layout is not a stable contract.
-- Measured, not estimated. An earlier revision of this entry said
-  adapter-static "imposes prerendering on every route" as though that were a
-  cost. It was measured on 2026-10-30 and the cost is nil:
-  - `src/routes/` holds no `+page.server.ts`, no `+layout.server.ts`, no
-    `+server.ts`, no `+page.ts`, no form action, and no dynamic parameter.
-    Nothing in `src/` exports `prerender`, `ssr` or `csr`. With no dynamic
-    segment, SvelteKit prerenders every route without crawling, so
-    `handleUnseenRoutes` never arises.
-  - A trial build with `adapter({ pages: 'build', assets: 'build' })` and
-    `export const prerender = true` succeeded first time. It wrote all 16
-    routes with real rendered markup, 5 KB to 44 KB each, 99 files and 5.2 MB.
-    No route needed an opt-out.
-  - `cargo build --bin vibeforge` then succeeded against that output, with
-    `neuronforge_lane_state` registered.
-  - Behaviour is unchanged. Serving `build/` over a resolver that maps an
-    extensionless path to `.html`, as Tauri's asset protocol does, gives every
-    route HTTP 200 and the same count of interactive elements as `pnpm dev`
-    does for that route: 41 on `/settings`, 31 on `/history`, 20 on
-    `/analytics`, 17 on `/teams`, 14 on `/refactoring`, 1 on `/login`. Both
-    produce the same console errors, and all of them are backend absence
-    (license validation and the `ws://localhost:8001/ws` socket), present
-    identically under `pnpm dev`.
-  - The E2E lanes are unaffected: `playwright.config.ts` starts `pnpm dev`,
-    not the built output.
-  - Adapter-static would also make the Build job's artifact upload real. It
-    currently uploads nothing.
-- Two consequences worth stating, neither a blocker:
-  - `src/routes/_archive/` holds four pages that are live routes, not
-    archived. They appear in `.svelte-kit/output` today and prerender to
-    `build/_archive/*.html`. Prerendering does not create that; it makes it
-    visible.
-  - Prerendered markup is build-time state, so a list that is empty at build
-    time renders empty until hydration replaces it. It also means every
-    page's markup ships statically, which bears on the commented-out route
-    guard recorded below: static HTML cannot be auth-gated.
-- Scope: open, and an operator decision about how the product ships. The
-  measurement above is evidence for that decision, not the decision.
+- What was wrong: loading `/_archive/analytics` threw
+  `TypeError: Cannot read properties of undefined (reading 'toFixed')`. It
+  reproduced identically under `pnpm dev`, so it was pre-existing and
+  unrelated to the adapter change. The artifact verifier surfaced it, which
+  was the first time anything in CI looked at that route.
+- Fix: the route was retired with the rest of `_archive`, so the page is no
+  longer reachable and the crash is no longer live. The verifier's
+  `KNOWN_DEFECTS` entry for it was removed.
+- The crash itself is **not fixed**: the code now sits in
+  `src/archive/retired-routes/analytics/`, and anyone reviving that page will
+  meet it again. It is recorded here for that reason.
+- The removal was not silent. The verifier gained a check that every
+  `KNOWN_DEFECTS` entry names a route that still exists, precisely because
+  retiring the route stopped the per-route loop from visiting it, so the
+  original self-retiring check could never have fired and the entry would have
+  widened the gate unnoticed.
+- Scope: closed as unreachable; the underlying defect is recorded above.
+
+## 2026-10-30 - The artifact verifier passed broken artifacts (closed)
+
+- What was wrong: `scripts/verify-production-artifact.mjs` reported
+  `27/27 checks passed`, exit 0, against an artifact in which six of twelve
+  routes rendered `500 Internal Error` and every stylesheet had been deleted.
+- Root causes, each verified against the framework source:
+  - The hydration signal, `history.state['sveltekit:history']`, is written by
+    SvelteKit at `client.js:341` and `await _hydrate` is called at `:361`, so
+    the key is stamped twenty lines before hydration. `_hydrate` catches a
+    failed branch load and renders the error page, so the stamp survives a
+    total failure. Five `hydrates` checks and the nested-reload check were
+    satisfiable by the client merely starting.
+  - The error classifier matched substrings, and `Failed to fetch` is the
+    message of a failed dynamic import. `TypeError: Failed to fetch
+    dynamically imported module` — the canonical broken-chunk symptom — was
+    filed as backend absence. `Failed to load resource`, `Load failed` and
+    `NetworkError` were similarly over-broad.
+  - Errors were sampled at `load` with no settle, so a failure arriving more
+    than about 100ms later was invisible.
+  - Only five of twelve routes were probed, and nothing looked at CSS.
+  - `X serves 200` could not fail, because Tauri's resolver falls back to the
+    index for every path.
+- Fix: rewritten. Routes come from `src/routes/`, not from the artifact. Each
+  route's rendered output is compared against its own prerendered file after a
+  settle. Styles, cross-route byte uniqueness, and stylesheet resolution are
+  checked. Suppression is decided by the origin a request went to, not by
+  wording. See `doc/system/50-operations.md`.
+- Verified by rejecting twelve deliberately damaged artifacts, including the
+  one that scored 27/27, while the healthy artifact scores 95/95.
+- Scope: closed. The lesson is recorded in the script's own header, because
+  this was the fourth instance of the same mistake in that file.
+
+## 2026-10-30 - The desktop application could not be built (closed)
+
+- What was wrong: `src-tauri/tauri.conf.json` set `frontendDist` to
+  `"../build"`, and `svelte.config.js` used `@sveltejs/adapter-auto`, which
+  detects a hosting platform and writes nothing when it finds none. That was
+  the case here: `pnpm build` printed `Could not detect a supported production
+  environment` and emitted only `.svelte-kit/output`. No `build/` directory
+  existed, so `cargo build --bin vibeforge` and `tauri build` both failed with
+  `proc macro panicked ... The frontendDist configuration is set to
+  "../build" but this path doesn't exist`. A bare `cargo test` failed for the
+  same reason, because it builds every target.
+- Why CI did not catch it: `pnpm build` exits 0, and the `upload-artifact`
+  step for `build/` defaulted to `if-no-files-found: warn`, so the Build job
+  uploaded nothing and stayed green.
+- Fix: `@sveltejs/adapter-static` with `pages` and `assets` set to `build`,
+  and `prerender = true` in a root `src/routes/+layout.ts`. Chosen over
+  pointing `frontendDist` at `.svelte-kit/output/client`, whose layout is a
+  SvelteKit internal rather than a contract. Authorized by the operator on
+  2026-10-30 on measured evidence.
+- Measured outcome: all 16 routes prerender, 99 files, 5.2 MB, no route
+  needing an opt-out. `cargo build --bins` then succeeds and produces
+  `src-tauri/target/debug/vibeforge` — verified on a branch off `master` with
+  no other change, so the adapter alone accounts for it. `pnpm run check` 0
+  errors, `pnpm test:run` 1416 passed, `pnpm verify:artifact` 27 of 27.
+- Guarded against recurrence in the Build job: an assertion step requiring
+  `build/`, `build/index.html`, `build/_app/` and one file per route;
+  `pnpm verify:artifact`; and `if-no-files-found: error` on the upload. See
+  `doc/system/50-operations.md`.
+- Scope: closed. Two related items stay open below: the four live
+  `_archive` routes, and the commented-out route guard, which prerendering
+  makes more pointed because static HTML cannot be auth-gated.
+
+## 2026-10-30 - The Quick Run button navigated to a route that did not exist (closed)
+
+- What was wrong: `src/lib/ui/layout/TopBar.svelte` called
+  `goto("/quick-run")`. There was no `/quick-run` route; the only page with
+  that name was `src/routes/_archive/quick-run/`. TopBar renders on every
+  route except `/login`, so the button was on screen on 11 of the 12 live
+  pages.
+- Measured, twice each, by clicking the real button. Under `pnpm dev` nothing
+  happened: no document request, no navigation, the URL stayed `/`, the rail
+  still highlighted Workbench, and a value set on `window` survived — a silent
+  no-op. Against the built artifact it was a full document load, `200
+  /quick-run`, the URL left at `/quick-run`, the Workbench rendered, **no** nav
+  item highlighted, and the `window` value gone. Tauri's resolver falls back to
+  `index.html`, which is why an absent route answered 200.
+- Fix: the operator ruled on 2026-10-30 to remove the button. The retired
+  `quick-run` page was a predecessor of the Workbench — a prompt editor with
+  context and model selection and an outputs pane — and that function is now
+  the default page at `/`, already reachable from the logo and the rail's
+  Workbench item. Repointing the button would have given a third path to the
+  same page under a label that no longer described it.
+- Guarded against recurrence: `scripts/verify-production-artifact.mjs` now
+  requires every `goto()` and `href` target in `src/lib` and `src/routes` to
+  name a declared route. Nothing caught the original, because the prerenderer
+  crawls rendered HTML and so would have failed the build on a dangling `<a
+  href>`, but cannot see a target inside an `onclick`.
+- The guard was checked by reinstating the dangling `goto` (caught, naming the
+  file) and by introducing a typo into a main-navigation `href` (caught). The
+  second found a real gap in the first version of the guard: it matched only
+  the literal `href="..."` attribute form and missed `href: '/contexts'`, the
+  object-property form the main navigation actually uses, so every rail item
+  was unchecked.
+- Scope: closed.
+
+## 2026-10-30 - `src/routes/_archive/` held four live routes (closed)
+
+- What was wrong: `src/routes/_archive/` contained `analytics`,
+  `dev-environment`, `presets` and `quick-run` pages. The directory name
+  suggested they were retired, but SvelteKit treats `_archive` as an ordinary
+  route segment, so `/_archive/analytics` and its three siblings were
+  reachable routes. They appeared in `.svelte-kit/output` and prerendered to
+  `build/_archive/*.html`.
+- Fix: the operator ruled on 2026-10-30 that they are retired. The four
+  directories moved to `src/archive/retired-routes/`, which is outside
+  `src/routes/` and therefore not a route tree. That follows the convention
+  `src/archive/demo-routes/` already set, and the move used `git mv` so the
+  history is preserved. The code is still in the repository and still
+  type-checks; it is simply no longer reachable.
+- The artifact now holds 12 routes rather than 16.
+- Follow-on: this also closed the `/_archive/analytics` crash, which is no
+  longer reachable, and let the artifact verifier's `KNOWN_DEFECTS` list go
+  back to empty.
+- Left alone deliberately: `src/lib/components/quickrun/`,
+  `src/lib/components/dev-environment/`, and parts of
+  `src/lib/components/presets/` and `src/lib/components/analytics/` were
+  imported only by the retired pages, so they are now orphaned. Removing them
+  is a dead-code sweep, not a route retirement, and belongs in its own change.
+- Scope: closed.
+
+## 2026-10-30 - Components orphaned by the route retirement (open)
+
+- What is wrong: retiring the four `_archive` routes left their component
+  trees imported by nothing live. `src/lib/components/quickrun/`
+  (`QuickRunForm`, `QuickRunHeader`, `QuickRunOutputs`) and
+  `src/lib/components/dev-environment/DevEnvironmentPanel.svelte` were
+  imported only by retired pages. Parts of
+  `src/lib/components/presets/` and `src/lib/components/analytics/` are in the
+  same position; those two need checking per-file, because some of their
+  components are also used by live routes.
+- Effect: dead code that still type-checks and still appears in search
+  results, so a future reader may take it for a live surface. It is not
+  shipped — Vite only bundles what is reachable from a route — so there is no
+  artifact or runtime cost.
+- Scope: open. A dead-code sweep, deliberately not folded into the route
+  retirement: mixing a deletion of component trees into that change would
+  have made both harder to review, and the per-file check for `presets/` and
+  `analytics/` is real work rather than a mechanical delete.
 
 ## 2026-10-30 - Rust formatting cannot be checked crate-wide (open)
 
@@ -78,6 +178,7 @@
   reformatting commit mixed into a boundary change makes both unreviewable.
 
 ## 2026-10-30 - No workflow builds or tests Rust (closed for the library)
+
 
 - What is wrong: `src-tauri/` carries seven Tauri commands, an authority
   module, a governance model, a vault and a repo-truth module. No workflow in
@@ -102,10 +203,17 @@
   neither feature is enabled. The job is blocking through `All Tests Passed`.
 - Scope: closed for the library target, which is the local inference bridge.
   Still open for everything else under `src-tauri/src/`: the seven Tauri
-  commands, the authority module, the governance model, the vault and
-  repo-truth modules all live in the binary crate, which cannot be compiled at
-  all — see the `frontendDist` entry above. Covering them depends on that
-  being settled first, not on more CI.
+  commands, the authority module, the governance model, the vault and the
+  repo-truth module all live in the binary crate, which the `Rust Bridge (lib)`
+  job does not build.
+- Updated 2026-10-30, after the adapter change: the binary crate **can** now be
+  compiled. An earlier revision of this entry said covering it depended on the
+  `frontendDist` blocker being settled first, and that blocker is closed above,
+  so the job could widen from `cargo test --lib` to the full binary. Two things
+  stand in the way of simply doing that: `cargo clippy --all-targets -- -D
+  warnings` would fail on the binaries' many pre-existing warnings, and
+  `cargo fmt --check` would fail on the 36 unformatted files recorded above.
+  Both need their own change, in that order, before the job can widen.
 
 ## 2026-10-02 - `verify:repo-context` fails on a clean checkout (open)
 

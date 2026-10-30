@@ -9,6 +9,145 @@ Deployment, observability, incident response, and bounded repair.
 > real authored content. Registry will not invent repo truth that is not
 > already present in the repo.
 
+## The production build
+
+`pnpm build` writes a directory of prerendered files to `build/`.
+`src-tauri/tauri.conf.json` names that directory as `frontendDist: "../build"`
+and `generate_context!` reads it at compile time, so the desktop binary does
+not compile without it.
+
+### Why adapter-static
+
+`svelte.config.js` uses `@sveltejs/adapter-static` with `pages` and `assets`
+both set to `build`, and `src/routes/+layout.ts` sets `prerender = true` for
+every route below it, which is all of them.
+
+Before this, the repository used `@sveltejs/adapter-auto`. That adapter detects
+a hosting platform and writes nothing when it finds none, which was the case
+here: `pnpm build` printed `Could not detect a supported production
+environment` and emitted only `.svelte-kit/output`. The desktop application
+therefore could not be built at all, and CI did not notice, because
+`pnpm build` exits 0 and the artifact upload only warned about the empty path.
+
+Prerendering every route is viable because nothing in this application needs a
+server at runtime. `src/routes/` holds no `+page.server.ts`, no
+`+layout.server.ts`, no `+server.ts`, no form action and no dynamic route
+parameter, so SvelteKit enumerates every route without crawling for links.
+
+`trailingSlash` stays at its default of `never`, so a route is written as
+`settings.html` rather than `settings/index.html`. That matches Tauri's asset
+resolver, which tries the exact path, then `<path>.html`, then
+`<path>/index.html`, then `index.html`
+(`tauri-2.9.3/src/manager/mod.rs`, `AppManager::get_asset`). A reload at a
+nested route therefore resolves to that route's own file.
+
+`strict` stays at its default of `true`, so the build fails if any route is
+not prerendered rather than producing an artifact with holes in it. No
+`fallback` is configured, because setting one switches that check off.
+
+### How the artifact is verified
+
+Three things guard it, in the `Build` job of `.github/workflows/ci.yml`:
+
+1. An assertion step requiring `build/`, a non-empty `build/index.html` and
+   `build/_app/`. It fails the job; it does not warn. It covers only those
+   three, so a missing artifact fails before a browser starts.
+2. `pnpm verify:artifact` runs `scripts/verify-production-artifact.mjs`
+   against the built files.
+3. The artifact upload sets `if-no-files-found: error`.
+
+`verify-production-artifact.mjs` serves `build/` over a resolver written to
+match Tauri's four-step order, then checks every route that `src/routes/`
+declares. For each route it requires:
+
+- the route to have its own non-empty file in the artifact;
+- the browser to render what that route's prerendered file says it renders,
+  compared after a settle;
+- no SvelteKit error page, detected by the status code that page puts first
+  rather than by searching the text for a 4xx-shaped number;
+- stylesheets to have applied, measured as a non-zero `document.styleSheets`
+  rule count;
+- no console or page error that an absent backend does not account for;
+- the route to serve its own bytes rather than the index fallback.
+
+It also requires that no two routes serve byte-identical HTML, that every
+stylesheet the entry page references resolves to a real `.css` file, and that
+every in-app navigation target in `src/lib` and `src/routes` names a declared
+route.
+
+That last one reads `goto("/...")` calls and `href` targets in both their
+literal-attribute and object-property forms, because the main navigation
+declares `href: '/contexts'` and renders it as `href={item.href}`. It skips
+`src/lib/data/architecture-patterns/`, whose paths belong to the project
+VibeForge scaffolds for a user rather than to this application. It is a
+literal scan, so a computed target is invisible to it; that is the honest
+limit, and it catches the class of mistake that occurred.
+
+Then four checks that need a live client: a link click that changes the route
+without reloading the document, with the destination rendering its own
+content; `Meta+N` opening the project wizard; `Meta+Shift+N` opening Quick
+Create; and typing a project name flipping Quick Create's Create button from
+disabled to enabled, which requires a derived value to recompute.
+
+An absent service is distinguished from a defect by **where a request went**,
+not by the wording of a message. A failed request to another origin is
+absence. Anything naming a failed module import, a refused script or style, or
+an error page is a defect whatever else it says.
+
+#### Why it is shaped that way
+
+Four earlier versions of these checks passed against artifacts that were
+plainly broken. The shape of the mistake kept recurring, so it is recorded:
+
+| Check | Why it proved nothing |
+|---|---|
+| `data-sveltekit-hydrated` on `<body>` | SvelteKit sets no such attribute |
+| `fill(input, 'x')` then assert the input holds `x` | `fill` writes the DOM value directly; passed with the client bundle deleted |
+| `history.state['sveltekit:history']` | written at `client.js:341`, twenty lines before `await _hydrate` at `:361`, and `_hydrate` swallows a failed branch load and renders the error page |
+| route list derived from the artifact | a deleted route vanished from the checks instead of failing |
+| each route compared against its own file | a file holding the wrong page made both sides wrong together |
+
+A check must observe the application's rendered output, and must not be
+satisfiable by the framework merely starting, nor by the artifact agreeing
+with itself.
+
+#### It is checked against broken artifacts
+
+The script is run against deliberately damaged copies rather than assumed to
+work. Each of these is rejected:
+
+| Damage | Result |
+|---|---|
+| six route chunks dead and every stylesheet deleted | 62 of 95 |
+| every route chunk deleted | 72 of 93 |
+| all stylesheets deleted | 79 of 95 |
+| two route chunks deleted | 89 of 95 |
+| a route chunk that throws `TypeError: Failed to fetch` | 92 of 95 |
+| `history.html` deleted | 93 of 95 |
+| `settings.html` deleted | 93 of 95 |
+| `settings.html` replaced by `dashboard.html` | 94 of 95 |
+| a boot error thrown 300ms after load | 94 of 95 |
+| a `goto()` target that is not a route | rejected, naming the file |
+| a typo in a main-navigation `href` | rejected, naming the file |
+
+The first of those passed an earlier version of the gate 27 of 27 while six
+routes rendered `500 Internal Error` and the application shipped unstyled.
+
+#### Known defects
+
+`KNOWN_DEFECTS` in the script holds pre-existing failures the gate does not
+fail on. An entry is keyed to a route and a message, never a skipped
+directory, and everything else on that route is still checked.
+
+Each entry is self-retiring in two ways. If the defect stops appearing, the
+gate **fails** and asks for the entry to be deleted. If the entry names a
+route that no longer exists, the gate **fails** too — added after retiring
+the `_archive` routes left an entry pointing at a route the per-route loop no
+longer visits, where nothing would have run its check and the entry would have
+sat there widening the gate in silence.
+
+The list is currently empty, which is the goal.
+
 ## Which CI runs for which change
 
 The rule holds for a push to `main`, `master` or `develop`.
