@@ -161,7 +161,24 @@
   have made both harder to review, and the per-file check for `presets/` and
   `analytics/` is real work rather than a mechanical delete.
 
-## 2026-10-30 - No workflow builds or tests Rust (open)
+## 2026-10-30 - Rust formatting cannot be checked crate-wide (open)
+
+- What is wrong: 36 files under `src-tauri/src/` are not rustfmt-clean.
+  `cargo fmt --check` therefore fails on the crate, and `cargo fmt` rewrites
+  all 36.
+- Effect: the `Rust Bridge (lib)` job in `ci.yml` checks formatting with
+  `rustfmt --check` over explicit paths rather than `cargo fmt --check`.
+  `cargo fmt` follows `mod` declarations and so reaches those files; `rustfmt`
+  on explicit paths does not. The checked paths are the whole library target,
+  because `src/lib.rs` declares only `pub mod neuronforge`.
+- Consequence: formatting in the binary crate's modules stays unchecked.
+- Fix: run `cargo fmt` over `src-tauri/` as its own change, with no other
+  edits in it, then replace the scoped check with `cargo fmt --all --check`.
+- Scope: open. Kept out of the bridge change deliberately: a 36-file
+  reformatting commit mixed into a boundary change makes both unreviewable.
+
+## 2026-10-30 - No workflow builds or tests Rust (closed for the library)
+
 
 - What is wrong: `src-tauri/` carries seven Tauri commands, an authority
   module, a governance model, a vault and a repo-truth module. No workflow in
@@ -178,8 +195,25 @@
   the readiness state machine, the refusal taxonomy and the permission rules in
   TypeScript, where they are tested, and leaves the transport to a slice that
   can add Rust CI alongside it.
-- Scope: open. A Rust job needs the system libraries installed in the runner,
-  which is a CI change rather than a code change.
+- Fix: `ci.yml` now runs a `Rust Bridge (lib)` job — `rustfmt --check`,
+  `cargo clippy --lib -- -D warnings`, `cargo test --lib` — with
+  `libwebkit2gtk-4.1-dev` and `libgtk-3-dev` installed in the runner. Those
+  two packages are what the library's build scripts actually ask to link
+  against; librsvg and appindicator are bundler and tray dependencies and
+  neither feature is enabled. The job is blocking through `All Tests Passed`.
+- Scope: closed for the library target, which is the local inference bridge.
+  Still open for everything else under `src-tauri/src/`: the seven Tauri
+  commands, the authority module, the governance model, the vault and the
+  repo-truth module all live in the binary crate, which the `Rust Bridge (lib)`
+  job does not build.
+- Updated 2026-10-30, after the adapter change: the binary crate **can** now be
+  compiled. An earlier revision of this entry said covering it depended on the
+  `frontendDist` blocker being settled first, and that blocker is closed above,
+  so the job could widen from `cargo test --lib` to the full binary. Two things
+  stand in the way of simply doing that: `cargo clippy --all-targets -- -D
+  warnings` would fail on the binaries' many pre-existing warnings, and
+  `cargo fmt --check` would fail on the 36 unformatted files recorded above.
+  Both need their own change, in that order, before the job can widen.
 
 ## 2026-10-02 - `verify:repo-context` fails on a clean checkout (open)
 
@@ -554,8 +588,15 @@
 - This also bounds the E2E lane question above. The service-dependent specs
   cannot run against a local inference service, because the application has no
   setting that names one.
-- Scope: open. Adding a local lane is an architecture decision, not a test
-  fix.
+- Progress: the operator authorized a local lane behind a trusted desktop
+  bridge on 2026-10-30. Slice 1 added the contract, readiness state machine,
+  refusal taxonomy and permission rules in `src/lib/core/neuronforge/`. Slice 2
+  added the Rust transport, the `neuronforge_lane_state` command, the shared
+  wire fixture, and the Rust CI job that verifies them. See
+  `doc/system/40-integrations.md`.
+- Scope: open. The lane reports readiness; it executes nothing. Enabling local
+  model execution is a separate authorization, and the bridge cannot reach a
+  user until the desktop build is fixed — see the `frontendDist` entry.
 
 ## 2026-10-30 - A login response with no token fails silently (open)
 

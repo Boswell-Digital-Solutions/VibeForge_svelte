@@ -116,8 +116,8 @@ jobs:
 
       - name: Install Playwright browsers
         # The setup project (tests/e2e/auth.setup.ts) declares no browser, so it
-        # runs in chromium, and every browser project depends on it. Install
-        # chromium alongside the matrix browser or the setup cannot launch.
+        # runs in chromium, and every browser project depends on it. This lane
+        # is chromium only; the other browsers run in e2e-full.yml.
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests
@@ -140,6 +140,67 @@ jobs:
           name: test-results-smoke
           path: test-results/
           retention-days: 30
+
+  # The Rust side of the desktop app had no CI at all until this job, so
+  # nothing under src-tauri/ was ever compiled or tested by a pull request.
+  #
+  # It covers the library target only, which today is the local inference
+  # bridge. That is not a preference: `cargo test` builds every target,
+  # including the `vibeforge` binary, whose `generate_context!` reads
+  # `frontendDist` and panics because `pnpm build` produces no `build/`
+  # directory under the configured adapter. So the binary cannot be compiled
+  # here, and `--lib` is what is honestly verifiable. See
+  # docs/KNOWN_ISSUES.md (KI-VBF-20261030-001) for the adapter question and
+  # KI-VBF-20261030-002 for the formatting scope below.
+  #
+  # No path filter: status-check below treats a skipped job as a failure, so a
+  # filtered job would block every pull request that did not touch src-tauri/.
+  rust-bridge:
+    name: Rust Bridge (lib)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Tauri system dependencies
+        # Exactly what the library's dependency tree links against, taken from
+        # the `cargo:rustc-link-lib` lines its build scripts emit:
+        # webkit2gtk-4.1, javascriptcoregtk-4.1, soup-3.0, gtk-3, gdk-3, atk,
+        # cairo, pango, glib, gio, gdk-pixbuf. The webkit package pulls the
+        # javascriptcore and soup development files in with it. librsvg and
+        # appindicator are bundler and tray dependencies, and neither feature
+        # is enabled, so they are not installed.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      - name: Cache cargo and build output
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Check formatting
+        # Scoped to this slice's files rather than the crate. `cargo fmt`
+        # follows `mod` declarations, so checking the crate reaches the 36
+        # pre-existing files under src-tauri/src/ that are not rustfmt-clean,
+        # and reformatting them is not this change's business. `rustfmt` on
+        # explicit paths does not follow those declarations.
+        # src/lib.rs declares only `pub mod neuronforge`, so these three files
+        # are the whole library target.
+        working-directory: src-tauri
+        run: rustfmt --check --edition 2024 src/lib.rs src/neuronforge/mod.rs src/neuronforge/tests.rs
+
+      - name: Clippy
+        # `--lib` for the same reason as the tests, and because --all-targets
+        # would reach the binaries' pre-existing warnings, which -D warnings
+        # would then turn into failures.
+        working-directory: src-tauri
+        run: cargo clippy --lib -- -D warnings
+
+      - name: Test
+        working-directory: src-tauri
+        run: cargo test --lib
 
   build:
     name: Build
@@ -217,13 +278,14 @@ jobs:
     name: All Tests Passed
     if: always()
     runs-on: ubuntu-latest
-    needs: [lint-and-typecheck, unit-tests, e2e-smoke, build]
+    needs: [lint-and-typecheck, unit-tests, rust-bridge, e2e-smoke, build]
 
     steps:
       - name: Check job results
         run: |
           if [ "${{ needs.lint-and-typecheck.result }}" != "success" ] || \
              [ "${{ needs.unit-tests.result }}" != "success" ] || \
+             [ "${{ needs.rust-bridge.result }}" != "success" ] || \
              [ "${{ needs.e2e-smoke.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ]; then
             echo "One or more jobs failed"

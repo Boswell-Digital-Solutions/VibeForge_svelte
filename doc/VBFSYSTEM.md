@@ -286,20 +286,80 @@ documentation says the status code must never be read as "Ollama is up". A
 caller keyed on the status code reports a healthy lane over a dead runtime.
 
 Every lane state is distinguishable: `ready`, `runtime_degraded`, `refused`
-with the specific refusal, `unreachable`, and `bridge_absent`. There is no
-state meaning "probably fine", and no cloud fallback: an unavailable local lane
-is a reported state, never a silent escalation.
+with the specific refusal, `unreachable`, `bridge_absent`, and
+`bridge_unconfigured`. There is no state meaning "probably fine", and no cloud
+fallback: an unavailable local lane is a reported state, never a silent
+escalation.
+
+`refused` and `bridge_unconfigured` are deliberately separate. A refusal is the
+node rejecting a request that was made. A misconfigured bridge never sent one,
+and the remedy is local configuration rather than anything about the node.
+
+### The transport
+
+`src-tauri/src/neuronforge/mod.rs` holds the desktop side: the loopback
+transport, the capability read, and the `neuronforge_lane_state` Tauri command.
+It performs readiness only and issues no execution.
+
+The capability is read from `NEURONFORGE_LOCAL_CAPABILITY` in the Rust process
+and never crosses the IPC boundary. The command returns a lane state and
+nothing else, so the webview cannot read, log or store the capability. Its
+shape is checked before any request goes out, against the `[A-Za-z0-9_-]{32,512}`
+the service accepts, so a malformed value is reported as a local configuration
+fault rather than sent and returned as a 401, which would read as the wrong
+problem.
+
+The transport builds its URL from a fixed loopback authority,
+`127.0.0.1:8027`, rather than from configuration, so no setting can redirect
+the capability to another host. It sends no `Origin` header. A test serves one
+request from a throwaway listener and asserts the exact bytes that leave: the
+capability header present, no `Origin`, a loopback `Host`.
+
+`src/lib/core/neuronforge/desktopBridge.ts` is the webview's only handle on the
+bridge. In a plain browser it reports `bridge_absent` and asks nothing, because
+a request from a browser would be refused for its `Origin` and report as a
+permissions problem rather than as the wrong kind of caller.
+
+### The wire contract between the two sides
+
+The two sides are written in different languages with different naming
+conventions, and a disagreement between them is invisible at runtime: a key
+renamed on the Rust side arrives in the webview as `undefined`, not as an
+error.
+
+So the shape is declared once, in
+`src/lib/core/neuronforge/lane-state.fixtures.json`, and each side is tested
+against that file rather than against the other side's source.
+`src-tauri/src/neuronforge/tests.rs` asserts its serialization equals the
+fixtures; `src/lib/core/neuronforge/__tests__/laneStateParity.test.ts` asserts
+each fixture narrows through the TypeScript union with every field reachable.
+Adding a state means changing three files, and both tests fail until they
+agree.
+
+Writing that test found a live defect: Rust emitted `resident_models` where the
+webview reads `residentModels`.
+
+### Verification
+
+`.github/workflows/ci.yml` runs a `Rust Bridge (lib)` job: `rustfmt --check`
+over the library's files, `cargo clippy --lib -- -D warnings`, and
+`cargo test --lib`. It is blocking through `All Tests Passed`.
+
+The job covers the library target only. `cargo test` without `--lib` builds the
+`vibeforge` binary, whose `generate_context!` panics because the configured
+adapter produces no `build/` directory for `frontendDist`. That is a
+pre-existing fault in the desktop build, recorded in `docs/KNOWN_ISSUES.md`,
+and it is why the verifiable boundary is drawn at the library.
 
 ### What this slice does not do
 
 It issues no execution. The delegation contract is defined so it can be
-reviewed; `bridge.ts` exposes no execute surface, and a test asserts it stays
-that way.
+reviewed; neither `bridge.ts` nor the Rust module exposes an execute surface,
+and tests on both sides assert it stays that way.
 
-It adds no transport. The Rust side of the bridge is a later slice, for a
-stated reason: no workflow in this repository builds or tests Rust, so a
-component holding a capability would ship unverified. See
-`docs/KNOWN_ISSUES.md`.
+It does not make the desktop application buildable. The bridge compiles and is
+tested, and the command is registered in `generate_handler!`, but the binary
+that would carry it cannot be built until the adapter question is settled.
 
 ## Forge Yellowjacket support agent
 
