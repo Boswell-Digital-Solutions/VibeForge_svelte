@@ -448,7 +448,7 @@ export class StackAdvisor {
     }
 
     // Generic stack pros
-    if (stack.complexity && stack.complexity === 'simple') {
+    if (stack.complexity && stack.complexity === 'beginner') {
       pros.push('Quick setup and easy to learn');
     }
     if (stack.features?.includes('TypeScript')) {

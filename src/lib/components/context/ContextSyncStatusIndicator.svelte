@@ -24,7 +24,7 @@ let { blockId, detailed = false, showTooltip = true }: Props = $props();
 
 // Get sync metadata for this block
 const syncMetadata = $derived(contextBlocksStore.blocks.find(b => b.id === blockId));
-const metadata = $derived($state.snapshot(contextBlocksStore).syncMetadata?.get(blockId));
+const metadata = $derived(contextBlocksStore.getSyncMetadata(blockId));
 
 // Helper to get status color
 function getStatusColor(status?: string): string {

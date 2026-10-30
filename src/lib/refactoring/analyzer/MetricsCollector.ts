@@ -4,8 +4,8 @@
  * Collects metrics for test coverage, type safety, code quality, and size.
  */
 
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { analyzerFs } from './nodeFs';
+import { join } from './posixPath';
 import type {
 	FileInfo,
 	TestCoverageMetrics,
@@ -61,9 +61,11 @@ export class CoverageCollector {
 			join(rootPath, '.coverage', 'coverage.json')
 		];
 
+		const fs = await analyzerFs();
+
 		for (const path of coveragePaths) {
 			try {
-				const content = await readFile(path, 'utf-8');
+				const content = await fs.readFile(path, 'utf-8');
 				const data = JSON.parse(content);
 
 				// Parse coverage data (format varies by tool)
@@ -125,8 +127,10 @@ export class TypeSafetyCollector {
 	 * Checks if tsconfig.json exists
 	 */
 	private async checkTsConfig(rootPath: string): Promise<boolean> {
+		const fs = await analyzerFs();
+
 		try {
-			await readFile(join(rootPath, 'tsconfig.json'), 'utf-8');
+			await fs.readFile(join(rootPath, 'tsconfig.json'), 'utf-8');
 			return true;
 		} catch {
 			return false;
@@ -137,8 +141,10 @@ export class TypeSafetyCollector {
 	 * Checks if strict mode is enabled in tsconfig
 	 */
 	private async checkStrictMode(rootPath: string): Promise<boolean> {
+		const fs = await analyzerFs();
+
 		try {
-			const content = await readFile(join(rootPath, 'tsconfig.json'), 'utf-8');
+			const content = await fs.readFile(join(rootPath, 'tsconfig.json'), 'utf-8');
 			const config = JSON.parse(content);
 			return config.compilerOptions?.strict === true;
 		} catch {
@@ -196,10 +202,12 @@ export class QualityCollector {
 				(f.type === 'typescript' || f.type === 'javascript' || f.type === 'svelte') && !f.isTest
 		);
 
+		const fs = await analyzerFs();
+
 		for (const file of sourceFiles.slice(0, 100)) {
 			// Limit to first 100 files for performance
 			try {
-				const content = await readFile(file.path, 'utf-8');
+				const content = await fs.readFile(file.path, 'utf-8');
 				const todoMatches = content.match(/\/\/\s*TODO/gi) || [];
 				const fixmeMatches = content.match(/\/\/\s*FIXME/gi) || [];
 				todoCount += todoMatches.length;

@@ -19,10 +19,11 @@ import type {
   TeamListFilter,
   TeamRole,
 } from '$lib/types/team';
+import { DATAFORGE_URL, NEUROFORGE_URL } from '$lib/core/api/endpoints';
 
 // API base URLs (from environment or config)
-const DATA_FORGE_API = import.meta.env.VITE_DATAFORGE_API_URL || 'http://localhost:8000';
-const NEURO_FORGE_API = import.meta.env.VITE_NEUROFORGE_API_URL || 'http://localhost:8001';
+const DATA_FORGE_API = DATAFORGE_URL;
+const NEURO_FORGE_API = NEUROFORGE_URL;
 
 // ============================================================================
 // Store State

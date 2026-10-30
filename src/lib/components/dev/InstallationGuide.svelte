@@ -310,6 +310,8 @@
 </div>
 
 <style>
+	@reference "tailwindcss";
+
   .installation-guide {
     @apply p-6;
   }

@@ -48,8 +48,22 @@ Displays model performance metrics including response times, error rates, and pe
     modelPerformance = [];
 
     for (const { id, provider } of models) {
-      const stats = performanceMetrics.getMetrics(provider as LLMProviderType, id);
-      if (stats && stats.totalRequests > 0) {
+      const metrics = performanceMetrics.getMetrics(id, provider);
+      if (metrics && metrics.totalRequests > 0) {
+        const stats: PerformanceStats = {
+          totalRequests: metrics.totalRequests,
+          errorCount: Math.round(metrics.errorRate * metrics.totalRequests),
+          acceptedCount: Math.round(
+            metrics.recommendationAcceptanceRate * metrics.totalRequests
+          ),
+          avgResponseTime: metrics.avgResponseTimeMs,
+          p50ResponseTime: metrics.p50ResponseTimeMs,
+          p95ResponseTime: metrics.p95ResponseTimeMs,
+          p99ResponseTime: metrics.p99ResponseTimeMs,
+          p50: metrics.p50ResponseTimeMs,
+          p95: metrics.p95ResponseTimeMs,
+          p99: metrics.p99ResponseTimeMs,
+        };
         modelPerformance.push({ model: id, provider, stats });
       }
     }

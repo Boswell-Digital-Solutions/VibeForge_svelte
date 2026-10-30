@@ -233,6 +233,8 @@ function formatIntent(intent: string): string {
 </div>
 
 <style>
+	@reference "tailwindcss";
+
 	.pattern-suggestions {
 		@apply overflow-hidden;
 	}

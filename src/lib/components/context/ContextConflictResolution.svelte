@@ -39,9 +39,9 @@ async function loadConflicts() {
     // Filter by block ID if specified, otherwise show all context conflicts
     conflicts = allConflicts.filter(c => {
       if (blockId) {
-        return c.resourceType === 'context' && c.resourceId === blockId;
+        return c.resourceType === 'contextBlock' && c.resourceId === blockId;
       }
-      return c.resourceType === 'context';
+      return c.resourceType === 'contextBlock';
     });
   } catch (err) {
     console.error('Failed to load context conflicts:', err);

@@ -5,8 +5,8 @@
  * Detects file types and gathers metadata.
  */
 
-import { readdir, stat, readFile } from 'fs/promises';
-import { join, relative, extname, basename } from 'path';
+import { analyzerFs } from './nodeFs';
+import { join, relative, extname, basename } from './posixPath';
 import type { FileInfo, FileType, FileScanResult } from '../types/analysis';
 
 /**
@@ -218,8 +218,12 @@ export class FileSystemScanner {
 			return;
 		}
 
+		// Resolved outside the try: the catch below turns a failure into an empty
+		// branch, and a missing filesystem must not read as a scan of no files.
+		const fs = await analyzerFs();
+
 		try {
-			const entries = await readdir(currentPath, { withFileTypes: true });
+			const entries = await fs.readdir(currentPath, { withFileTypes: true });
 
 			for (const entry of entries) {
 				const fullPath = join(currentPath, entry.name);
@@ -238,7 +242,7 @@ export class FileSystemScanner {
 					files.push(fileInfo);
 				} else if (entry.isSymbolicLink() && this.config.followSymlinks) {
 					// Handle symlinks if configured
-					const stats = await stat(fullPath);
+					const stats = await fs.stat(fullPath);
 					if (stats.isDirectory()) {
 						directories.push(relativePath);
 						await this.scanDirectory(rootPath, fullPath, files, directories, depth + 1);
@@ -261,14 +265,15 @@ export class FileSystemScanner {
 		fullPath: string,
 		relativePath: string
 	): Promise<FileInfo> {
-		const stats = await stat(fullPath);
+		const fs = await analyzerFs();
+		const stats = await fs.stat(fullPath);
 		const extension = extname(fullPath);
 		const type = detectFileType(extension);
 
 		// Read file content to count lines
 		let lines = 0;
 		try {
-			const content = await readFile(fullPath, 'utf-8');
+			const content = await fs.readFile(fullPath, 'utf-8');
 			lines = countLines(content);
 		} catch (error) {
 			// If file can't be read as text, skip line counting

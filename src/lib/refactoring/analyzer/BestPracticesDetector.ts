@@ -70,7 +70,10 @@ export class BestPracticesDetector {
 			// Detect fetch without error handling
 			if (/\bfetch\(/.test(line)) {
 				const nextLines = lines.slice(index, index + 5).join('\n');
-				if (!nextLines.includes('.catch(') && !nextLines.includes('try')) {
+				// The forward window only saw a try that follows the call, so a fetch
+				// inside a try block was still flagged. hasTryCatch covers an
+				// enclosing try opened above, as the .then() rule already does.
+				if (!hasTryCatch && !nextLines.includes('.catch(') && !nextLines.includes('try')) {
 					issues.push({
 						id: `missing-fetch-error-${filename}-${index}`,
 						severity: 'warning',
@@ -114,7 +117,8 @@ export class BestPracticesDetector {
 		lines.forEach((line, index) => {
 			// Exclude common acceptable numbers and declarations
 			if (
-				/const\s+\w+\s*=/.test(line) || // Constant declaration
+				// Allows an optional type annotation: `const x: number = 10`.
+				/const\s+\w+\s*(?::[^=]+)?=/.test(line) || // Constant declaration
 				/\b[01]\b/.test(line) ||        // 0 and 1 are acceptable
 				line.includes('Math.') ||
 				line.trim().startsWith('//')
@@ -174,8 +178,10 @@ export class BestPracticesDetector {
 				unreachableLines.push(index + 1);
 			}
 
-			// Close brace resets
-			if (trimmed === '}') {
+			// Any line that closes a block ends the region. This has to cover
+			// `} catch (e) {`, `} else {` and `} finally {`, not just a bare `}`,
+			// or the block that follows is wrongly reported as unreachable.
+			if (trimmed.startsWith('}') || /^(?:catch|else|finally)\b/.test(trimmed)) {
 				afterReturn = false;
 			}
 		});
@@ -331,7 +337,9 @@ export class BestPracticesDetector {
 			const trimmed = line.trim();
 
 			// Empty function bodies
-			if (/(?:function|=>\s*){}\s*$/.test(trimmed)) {
+			// Matches `function name() {}` and `() => {}`; the previous pattern
+			// required `{}` directly after `function`, so declarations never hit.
+			if (/(?:\bfunction\b[^(){}]*\([^()]*\)\s*|=>\s*)\{\s*\}\s*;?\s*$/.test(trimmed)) {
 				issues.push({
 					id: `empty-function-${filename}-${index}`,
 					severity: 'warning',
@@ -346,7 +354,9 @@ export class BestPracticesDetector {
 			}
 
 			// Empty catch blocks
-			if (trimmed === 'catch (e) {}' || trimmed === 'catch {}') {
+			// Any binding name, or none, with the try's closing brace on the
+			// same line as it is normally written.
+			if (/\bcatch\s*(?:\([^()]*\)\s*)?\{\s*\}/.test(trimmed)) {
 				issues.push({
 					id: `empty-catch-${filename}-${index}`,
 					severity: 'error',

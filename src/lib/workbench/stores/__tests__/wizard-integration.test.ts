@@ -87,17 +87,16 @@ describe('Wizard Integration Tests', () => {
 		],
 		idealFor: ['Web applications'],
 		notIdealFor: ['CLI tools'],
-		tools: ['Node.js', 'npm', 'TypeScript'],
+		tags: ['Node.js', 'npm', 'TypeScript'],
+		prerequisites: {
+			tools: ['Node.js', 'npm'],
+			skills: ['TypeScript'],
+			timeEstimate: '1 hour'
+		},
 		integration: {
 			protocol: 'rest-api',
-			dataFlow: 'request-response',
-			dependencies: []
-		},
-		documentation: {
-			quickStart: 'Quick start',
-			architecture: 'Architecture',
-			deployment: 'Deployment',
-			troubleshooting: 'Troubleshooting'
+			sharedTypes: true,
+			sharedConfig: false
 		}
 	};
 

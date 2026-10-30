@@ -9,6 +9,7 @@ import type { RefactoringPlan } from '../types/planning';
 import type { CodebaseAnalysis } from '../types/analysis';
 
 import { RefactoringExecutor } from '../executor/RefactoringExecutor';
+import { NEUROFORGE_URL } from '$lib/core/api/endpoints';
 
 interface ProjectStoreState {
 	/**
@@ -111,7 +112,7 @@ function createProjectStore() {
 					git: { enabled: false }, // Simulation mode for now
 					verifier: { enabled: false },
 					claudeCode: { enabled: false },
-					learning: { enabled: true, neuroforgeUrl: 'http://localhost:8000/api' }
+					learning: { enabled: true, neuroforgeUrl: `${NEUROFORGE_URL}/api` }
 				});
 
 				// Create project

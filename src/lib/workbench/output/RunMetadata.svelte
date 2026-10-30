@@ -118,7 +118,7 @@
 						</svg>
 						<div>
 							<div class="text-slate-400 text-xs">Input</div>
-							<div class="text-slate-200 font-medium">{formatNumber(run.metrics.inputTokens || 0)}</div>
+							<div class="text-slate-200 font-medium">{formatNumber(Number(run.metrics.inputTokens ?? 0))}</div>
 						</div>
 					</div>
 				{/if}
@@ -136,7 +136,7 @@
 						</svg>
 						<div>
 							<div class="text-slate-400 text-xs">Output</div>
-							<div class="text-slate-200 font-medium">{formatNumber(run.metrics.outputTokens || 0)}</div>
+							<div class="text-slate-200 font-medium">{formatNumber(Number(run.metrics.outputTokens ?? 0))}</div>
 						</div>
 					</div>
 				{/if}
