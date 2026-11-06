@@ -23,7 +23,11 @@ jobs:
   e2e-manual:
     name: E2E Tests - ${{ inputs.browser }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # `browser: all` runs every project unsharded, which needs well over the
+    # 30 minutes this used to allow -- the same cap that made the old
+    # pull-request lane report nothing. For a full sweep with merged reports,
+    # dispatch e2e-full.yml instead; this lane is for one browser at a time.
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -32,7 +36,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,7 +52,7 @@ jobs:
           if [ "${{ inputs.browser }}" = "all" ]; then
             pnpm exec playwright install --with-deps
           else
-            pnpm exec playwright install --with-deps ${{ inputs.browser }}
+            pnpm exec playwright install --with-deps ${{ inputs.browser }} chromium
           fi
 
       - name: Run E2E tests (all browsers)

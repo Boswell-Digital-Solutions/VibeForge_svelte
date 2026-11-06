@@ -132,7 +132,14 @@ fn main() {
             analyze_codebase,
             generate_project,
             generate_pattern_project_command,
-            analyze_project_runtime
+            analyze_project_runtime,
+            // Written out in full rather than imported. `#[tauri::command]`
+            // also emits a hidden `__cmd__` macro beside the function, and
+            // `generate_handler!` needs that macro, which a `use` of the
+            // function alone does not bring into scope. The bridge lives in
+            // the library target so it can be compiled and tested without
+            // this binary; see src/lib.rs.
+            vibeforge::neuronforge::neuronforge_lane_state
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

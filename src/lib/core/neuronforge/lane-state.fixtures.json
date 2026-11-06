@@ -1,0 +1,67 @@
+{
+  "comment": [
+    "The wire shape of LocalLaneState, read by both sides of the bridge.",
+    "",
+    "The Rust command serializes this type and the webview consumes it, so the",
+    "two must agree on every key. They are written in different languages with",
+    "different naming conventions, and a disagreement is invisible at runtime:",
+    "a missing key reads as `undefined`, not as an error. So the shape lives",
+    "here once, and a test on each side asserts against this file rather than",
+    "against the other side's source.",
+    "",
+    "src-tauri/src/neuronforge/tests.rs asserts its serialization equals these.",
+    "src/lib/core/neuronforge/__tests__/laneStateParity.test.ts asserts each one",
+    "narrows and every field is reachable through the TypeScript union.",
+    "",
+    "Adding a variant means adding it here, to LaneState in",
+    "src-tauri/src/neuronforge/mod.rs, and to LocalLaneState in",
+    "src/lib/core/neuronforge/bridge.ts. Both tests fail until all three agree.",
+    "",
+    "`bridge_absent` is asymmetric on purpose: only the webview can produce it,",
+    "because reaching the Rust command at all proves a bridge exists. It is",
+    "listed under `webview_only` so the asymmetry is declared rather than read",
+    "as an omission, and the Rust test asserts that variant does not exist there."
+  ],
+  "rust_produced": [
+    "ready",
+    "runtime_degraded",
+    "refused",
+    "unreachable",
+    "bridge_unconfigured"
+  ],
+  "webview_only": [
+    "bridge_absent"
+  ],
+  "states": {
+    "ready": {
+      "kind": "ready",
+      "models": [
+        "qwen2.5-coder:7b",
+        "llama3.1:8b"
+      ],
+      "residentModels": [
+        "qwen2.5-coder:7b"
+      ]
+    },
+    "runtime_degraded": {
+      "kind": "runtime_degraded",
+      "reason": "ollama is not reachable"
+    },
+    "refused": {
+      "kind": "refused",
+      "refusal": "invalid_local_caller",
+      "status": 403
+    },
+    "unreachable": {
+      "kind": "unreachable",
+      "detail": "connection refused"
+    },
+    "bridge_unconfigured": {
+      "kind": "bridge_unconfigured",
+      "reason": "NEURONFORGE_LOCAL_CAPABILITY is not set"
+    },
+    "bridge_absent": {
+      "kind": "bridge_absent"
+    }
+  }
+}

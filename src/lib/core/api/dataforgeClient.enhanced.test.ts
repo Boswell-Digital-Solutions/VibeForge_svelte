@@ -121,6 +121,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 		});
 
 		it('should stop retrying after max retries (3)', async () => {
+			vi.useFakeTimers();
 			const mockFetch = vi.mocked(fetch);
 
 			// Fail all attempts
@@ -130,10 +131,15 @@ describe('DataForge Enhanced HTTP Client', () => {
 				json: async () => ({ detail: 'Internal Server Error' }),
 			} as Response);
 
-			await expect(api.listWorkspaces()).rejects.toThrow('Internal Server Error');
+			const assertion = expect(api.listWorkspaces()).rejects.toThrow(
+				'Internal Server Error'
+			);
+			await vi.runAllTimersAsync();
+			await assertion;
 
 			// Should have tried 4 times total (1 initial + 3 retries)
 			expect(mockFetch).toHaveBeenCalledTimes(4);
+			vi.useRealTimers();
 		});
 
 		it('should use exponential backoff delays', async () => {
@@ -173,13 +179,25 @@ describe('DataForge Enhanced HTTP Client', () => {
 			vi.useFakeTimers();
 			const mockFetch = vi.mocked(fetch);
 
-			// Mock a hanging request
-			mockFetch.mockImplementation(() => new Promise(() => {}));
+			// Mock a request that hangs until its signal aborts, as fetch does.
+			mockFetch.mockImplementation(
+				(_url, init) =>
+					new Promise((_resolve, reject) => {
+						(init as RequestInit | undefined)?.signal?.addEventListener(
+							'abort',
+							() => {
+								const abortError = new Error('Aborted');
+								abortError.name = 'AbortError';
+								reject(abortError);
+							}
+						);
+					})
+			);
 
 			const promise = api.listWorkspaces().catch((e) => e);
 
-			// Advance past timeout
-			await vi.advanceTimersByTimeAsync(11000);
+			// Drain the timeout and every retry backoff it schedules.
+			await vi.runAllTimersAsync();
 
 			const error = await promise;
 			expect(error).toBeDefined();
@@ -248,7 +266,8 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 			const result = await api.listWorkspaces();
 
-			expect(result.data).toEqual({ results: mockWorkspaces, total: 1, page: 1, page_size: 100 });
+			// The workspace endpoints resolve the parsed body, not an ApiResponse.
+			expect(result).toEqual({ results: mockWorkspaces, total: 1, page: 1, page_size: 100 });
 			expect(mockFetch).toHaveBeenCalledWith(
 				expect.stringContaining('/workspaces'),
 				expect.objectContaining({ method: 'GET' })
@@ -267,7 +286,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 			const result = await api.getWorkspace('1');
 
-			expect(result.data).toEqual(mockWorkspace);
+			expect(result).toEqual(mockWorkspace);
 			expect(mockFetch).toHaveBeenCalledWith(
 				expect.stringContaining('/workspaces/1'),
 				expect.objectContaining({ method: 'GET' })
@@ -276,7 +295,11 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 		it('should create workspace', async () => {
 			const mockFetch = vi.mocked(fetch);
-			const newWorkspace = { name: 'New Workspace', description: 'Test', settings: {} };
+			const newWorkspace = {
+				name: 'New Workspace',
+				description: 'Test',
+				settings: { theme: 'dark' as const, autoSave: true },
+			};
 			const createdWorkspace = { ...newWorkspace, id: '1', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
 
 			mockFetch.mockResolvedValueOnce({
@@ -287,7 +310,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 			const result = await api.createWorkspace(newWorkspace);
 
-			expect(result.data).toEqual(createdWorkspace);
+			expect(result).toEqual(createdWorkspace);
 			expect(mockFetch).toHaveBeenCalledWith(
 				expect.stringContaining('/workspaces'),
 				expect.objectContaining({ method: 'POST', body: JSON.stringify(newWorkspace) })
@@ -307,7 +330,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 			const result = await api.updateWorkspace('1', updates);
 
-			expect(result.data).toEqual(updatedWorkspace);
+			expect(result).toEqual(updatedWorkspace);
 			expect(mockFetch).toHaveBeenCalledWith(
 				expect.stringContaining('/workspaces/1'),
 				expect.objectContaining({ method: 'PATCH', body: JSON.stringify(updates) })
@@ -323,9 +346,8 @@ describe('DataForge Enhanced HTTP Client', () => {
 				json: async () => ({}),
 			} as Response);
 
-			const result = await api.deleteWorkspace('1');
+			await api.deleteWorkspace('1');
 
-			expect(result.success).toBe(true);
 			expect(mockFetch).toHaveBeenCalledWith(
 				expect.stringContaining('/workspaces/1'),
 				expect.objectContaining({ method: 'DELETE' })
@@ -363,12 +385,11 @@ describe('DataForge Enhanced HTTP Client', () => {
 		it('should create run', async () => {
 			const mockFetch = vi.mocked(fetch);
 			const newRun = {
-				workspace_id: 'ws-1',
+				workspaceId: 'ws-1',
+				promptText: 'Test prompt',
+				contextBlockIds: [],
 				model: 'claude-3.5-sonnet',
-				prompt: 'Test prompt',
-				response: 'Test response',
-				total_tokens: 100,
-				cost: 0.01,
+				provider: 'anthropic',
 			};
 
 			mockFetch.mockResolvedValueOnce({
@@ -379,7 +400,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 			const result = await api.createRun(newRun);
 
-			expect(result.data.id).toBe('1');
+			expect(result.data!.id).toBe('1');
 		});
 
 		it('should search runs with filters', async () => {
@@ -407,7 +428,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 		it('should update run', async () => {
 			const mockFetch = vi.mocked(fetch);
-			const updates = { response: 'Updated response' };
+			const updates = { output: 'Updated response' };
 
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
@@ -417,7 +438,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 			const result = await api.updateRun('1', updates);
 
-			expect(result.data.response).toBe('Updated response');
+			expect(result.data!.output).toBe('Updated response');
 		});
 
 		it('should delete run', async () => {
@@ -453,21 +474,30 @@ describe('DataForge Enhanced HTTP Client', () => {
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
 				status: 200,
-				json: async () => ({ results: mockBlocks, total: 1, page: 1, page_size: 100 }),
+				json: async () => ({
+					items: mockBlocks,
+					total: 1,
+					page: 1,
+					pageSize: 100,
+					hasMore: false,
+				}),
 			} as Response);
 
 			const result = await api.listContextBlocks('ws-1');
 
-			expect(result.data.results).toEqual(mockBlocks);
+			expect(result.data!.items).toEqual(mockBlocks);
 		});
 
 		it('should create context block', async () => {
 			const mockFetch = vi.mocked(fetch);
 			const newBlock = {
-				workspace_id: 'ws-1',
 				title: 'New Block',
+				kind: 'project' as const,
 				content: 'Content',
-				category: 'general',
+				description: 'Test block',
+				tags: ['general'],
+				isActive: true,
+				source: 'workspace' as const,
 			};
 
 			mockFetch.mockResolvedValueOnce({
@@ -478,7 +508,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 			const result = await api.createContextBlock(newBlock);
 
-			expect(result.data.id).toBe('1');
+			expect(result.data!.id).toBe('1');
 		});
 
 		it('should search context blocks', async () => {
@@ -518,22 +548,31 @@ describe('DataForge Enhanced HTTP Client', () => {
 			mockFetch.mockResolvedValueOnce({
 				ok: true,
 				status: 200,
-				json: async () => ({ results: mockTemplates, total: 1, page: 1, page_size: 100 }),
+				json: async () => ({
+					items: mockTemplates,
+					total: 1,
+					page: 1,
+					pageSize: 100,
+					hasMore: false,
+				}),
 			} as Response);
 
 			const result = await api.listPromptTemplates('ws-1');
 
-			expect(result.data.results).toEqual(mockTemplates);
+			expect(result.data!.items).toEqual(mockTemplates);
 		});
 
 		it('should create prompt template', async () => {
 			const mockFetch = vi.mocked(fetch);
 			const newTemplate = {
-				workspace_id: 'ws-1',
+				workspaceId: 'ws-1',
 				name: 'New Template',
+				description: 'Greets by name',
 				template: 'Hello {name}',
-				category: 'greeting',
 				variables: ['name'],
+				category: 'greeting',
+				tags: ['greeting'],
+				isPublic: false,
 			};
 
 			mockFetch.mockResolvedValueOnce({
@@ -544,7 +583,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 			const result = await api.createPromptTemplate(newTemplate);
 
-			expect(result.data.id).toBe('1');
+			expect(result.data!.id).toBe('1');
 		});
 
 		it('should update prompt template', async () => {
@@ -558,7 +597,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 
 			const result = await api.updatePromptTemplate('1', { name: 'Updated Template' });
 
-			expect(result.data.name).toBe('Updated Template');
+			expect(result.data!.name).toBe('Updated Template');
 		});
 
 		it('should delete prompt template', async () => {
@@ -580,8 +619,8 @@ describe('DataForge Enhanced HTTP Client', () => {
 		it('should batch update context blocks', async () => {
 			const mockFetch = vi.mocked(fetch);
 			const operations = [
-				{ id: '1', data: { title: 'Updated 1' } },
-				{ id: '2', data: { title: 'Updated 2' } },
+				{ operation: 'update' as const, id: '1', data: { title: 'Updated 1' } },
+				{ operation: 'update' as const, id: '2', data: { title: 'Updated 2' } },
 			];
 
 			mockFetch.mockResolvedValueOnce({
@@ -602,7 +641,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 		it('should batch update runs', async () => {
 			const mockFetch = vi.mocked(fetch);
 			const operations = [
-				{ id: '1', data: { response: 'Updated 1' } },
+				{ operation: 'update' as const, id: '1', data: { output: 'Updated 1' } },
 			];
 
 			mockFetch.mockResolvedValueOnce({
@@ -621,7 +660,7 @@ describe('DataForge Enhanced HTTP Client', () => {
 		it('should batch update prompt templates', async () => {
 			const mockFetch = vi.mocked(fetch);
 			const operations = [
-				{ id: '1', data: { name: 'Updated Template' } },
+				{ operation: 'update' as const, id: '1', data: { name: 'Updated Template' } },
 			];
 
 			mockFetch.mockResolvedValueOnce({
@@ -652,15 +691,21 @@ describe('DataForge Enhanced HTTP Client', () => {
 		});
 
 		it('should throw generic error if no detail', async () => {
+			vi.useFakeTimers();
 			const mockFetch = vi.mocked(fetch);
 
-			mockFetch.mockResolvedValueOnce({
+			// A 500 is retried, so every attempt needs the same answer.
+			mockFetch.mockResolvedValue({
 				ok: false,
 				status: 500,
 				json: async () => ({}),
 			} as Response);
 
-			await expect(api.listWorkspaces()).rejects.toThrow('HTTP 500');
+			const assertion = expect(api.listWorkspaces()).rejects.toThrow('HTTP 500');
+			await vi.runAllTimersAsync();
+			await assertion;
+
+			vi.useRealTimers();
 		});
 
 		it('should handle network errors', async () => {

@@ -6,9 +6,10 @@
 
 import type { ApiResponse } from "$lib/core/types";
 import { getAuthHeader } from "$lib/auth";
+import { NEUROFORGE_URL } from "./endpoints";
 
 const NEUROFORGE_BASE_URL =
-  import.meta.env.VITE_NEUROFORGE_URL || "http://localhost:8000";
+  NEUROFORGE_URL;
 
 export interface Prompt {
   id: string;

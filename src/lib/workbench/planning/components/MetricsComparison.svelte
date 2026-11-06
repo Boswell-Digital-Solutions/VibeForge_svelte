@@ -347,7 +347,7 @@ const maxDuration = Math.max(comparison.sessionA.durationMs, comparison.sessionB
 <style>
 	.metric-row {
 		padding-bottom: 0.75rem;
-		border-bottom: 1px solid theme('colors.gray.100');
+		border-bottom: 1px solid var(--color-gray-100);
 	}
 
 	.metric-row:last-child {
@@ -356,6 +356,6 @@ const maxDuration = Math.max(comparison.sessionA.durationMs, comparison.sessionB
 	}
 
 	:global(.dark) .metric-row {
-		border-bottom-color: theme('colors.gray.700');
+		border-bottom-color: var(--color-gray-700);
 	}
 </style>

@@ -116,7 +116,7 @@ test.describe('Skip Wizard Preference - Enabled (skipWizard = true)', () => {
 });
 
 test.describe('Skip Wizard Preference - Toggling', () => {
-  test('should remember preference across page reloads', async ({ page }) => {
+  test('should remember preference across page reloads', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 

@@ -6,6 +6,7 @@
 
 import { writable, derived } from "svelte/store";
 import { browser } from "$app/environment";
+import { NEUROFORGE_URL } from "$lib/core/api/endpoints";
 
 // ============================================================================
 // Types
@@ -33,7 +34,7 @@ export interface TokenResponse {
 // ============================================================================
 
 const NEUROFORGE_API_BASE =
-  import.meta.env.VITE_NEUROFORGE_URL || "http://localhost:8002";
+  NEUROFORGE_URL;
 const TOKEN_STORAGE_KEY = "vibeforge_jwt_token";
 const USER_STORAGE_KEY = "vibeforge_user";
 

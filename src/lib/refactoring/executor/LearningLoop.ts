@@ -14,6 +14,7 @@ import type {
 } from '../types/learning';
 import type { CodebaseAnalysis } from '../types/analysis';
 import type { AIExecutionMetrics } from '../types/execution';
+import { NEUROFORGE_URL } from '$lib/core/api/endpoints';
 
 /**
  * Learning Loop
@@ -25,7 +26,7 @@ export class LearningLoop {
 	private enabled: boolean;
 
 	constructor(config?: { baseUrl?: string; enabled?: boolean }) {
-		this.baseUrl = config?.baseUrl || 'http://localhost:8000/api';
+		this.baseUrl = config?.baseUrl || `${NEUROFORGE_URL}/api`;
 		this.enabled = config?.enabled ?? true;
 	}
 

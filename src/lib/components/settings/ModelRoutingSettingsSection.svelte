@@ -148,7 +148,7 @@ Configure intelligent model selection, cost tracking, and performance monitoring
 
     for (const model of models) {
       const provider: LLMProviderType = model.startsWith("gpt") ? "openai" : "anthropic";
-      const stats = performanceMetrics.getMetrics(provider as LLMProviderType, model);
+      const stats = performanceMetrics.getMetrics(model, provider);
       if (stats && stats.totalRequests > 0) {
         performanceStats[model] = stats;
       }

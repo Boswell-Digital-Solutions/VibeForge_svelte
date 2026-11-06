@@ -22,12 +22,14 @@ import {
 	pendingOperationsStore,
 	conflictsStore,
 	clearAllData,
+	closeDatabase,
 	getDatabaseStats,
 	type SyncMetadata,
 	type PendingOperation,
 	type ConflictResolution,
 } from './indexedDb';
-import type { Workspace, ContextBlock, Run, PromptTemplate } from '../types';
+import type { Workspace, ContextBlock } from '../types';
+import type { Run, PromptTemplate } from '../api/dataforgeClient.enhanced';
 
 describe('IndexedDB Offline Storage', () => {
 	beforeEach(async () => {
@@ -45,7 +47,7 @@ describe('IndexedDB Offline Storage', () => {
 			const db = await openDatabase();
 			expect(db).toBeDefined();
 			expect(db.name).toBe('vibeforge-offline');
-			db.close();
+			closeDatabase();
 		});
 
 		it('should create all 7 object stores', async () => {
@@ -65,7 +67,7 @@ describe('IndexedDB Offline Storage', () => {
 				expect(db.objectStoreNames.contains(storeName)).toBe(true);
 			}
 
-			db.close();
+			closeDatabase();
 		});
 
 		it('should create indexes for runs store', async () => {
@@ -76,7 +78,7 @@ describe('IndexedDB Offline Storage', () => {
 			expect(store.indexNames.contains('workspaceId')).toBe(true);
 			expect(store.indexNames.contains('createdAt')).toBe(true);
 
-			db.close();
+			closeDatabase();
 		});
 
 		it('should create indexes for syncMetadata store', async () => {
@@ -88,7 +90,7 @@ describe('IndexedDB Offline Storage', () => {
 			expect(store.indexNames.contains('isPending')).toBe(true);
 			expect(store.indexNames.contains('hasConflict')).toBe(true);
 
-			db.close();
+			closeDatabase();
 		});
 	});
 
@@ -97,9 +99,9 @@ describe('IndexedDB Offline Storage', () => {
 			id: 'ws-1',
 			name: 'Test Workspace',
 			description: 'Test description',
-			settings: { theme: 'dark' },
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			settings: { theme: 'dark', autoSave: true },
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		};
 
 		it('should save workspace', async () => {
@@ -164,12 +166,15 @@ describe('IndexedDB Offline Storage', () => {
 	describe('Context Block Store CRUD', () => {
 		const mockBlock: ContextBlock = {
 			id: 'block-1',
-			workspace_id: 'ws-1',
 			title: 'Test Block',
+			kind: 'project',
 			content: 'Test content',
-			category: 'general',
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			description: 'Test block',
+			tags: ['general'],
+			isActive: true,
+			source: 'workspace',
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		};
 
 		it('should save context block', async () => {
@@ -202,13 +207,17 @@ describe('IndexedDB Offline Storage', () => {
 	describe('Run Store CRUD', () => {
 		const mockRun: Run = {
 			id: 'run-1',
-			workspace_id: 'ws-1',
+			workspaceId: 'ws-1',
+			promptText: 'Test prompt',
+			contextBlockIds: [],
 			model: 'claude-3.5-sonnet',
-			prompt: 'Test prompt',
-			response: 'Test response',
-			total_tokens: 100,
+			provider: 'anthropic',
+			output: 'Test response',
+			tokensUsed: 100,
 			cost: 0.01,
-			created_at: new Date().toISOString(),
+			latencyMs: 1200,
+			status: 'completed',
+			createdAt: new Date().toISOString(),
 		};
 
 		it('should save run', async () => {
@@ -219,9 +228,9 @@ describe('IndexedDB Offline Storage', () => {
 		});
 
 		it('should get runs by workspace', async () => {
-			const run1 = { ...mockRun, id: 'run-1', workspace_id: 'ws-1' };
-			const run2 = { ...mockRun, id: 'run-2', workspace_id: 'ws-1' };
-			const run3 = { ...mockRun, id: 'run-3', workspace_id: 'ws-2' };
+			const run1 = { ...mockRun, id: 'run-1', workspaceId: 'ws-1' };
+			const run2 = { ...mockRun, id: 'run-2', workspaceId: 'ws-1' };
+			const run3 = { ...mockRun, id: 'run-3', workspaceId: 'ws-2' };
 
 			await runStore.save(run1);
 			await runStore.save(run2);
@@ -260,13 +269,17 @@ describe('IndexedDB Offline Storage', () => {
 	describe('Prompt Template Store CRUD', () => {
 		const mockTemplate: PromptTemplate = {
 			id: 'template-1',
-			workspace_id: 'ws-1',
+			workspaceId: 'ws-1',
 			name: 'Test Template',
+			description: 'Greets by name',
 			template: 'Hello {name}',
-			category: 'greeting',
 			variables: ['name'],
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			category: 'greeting',
+			tags: ['greeting'],
+			isPublic: false,
+			createdBy: 'user-1',
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		};
 
 		it('should save prompt template', async () => {
@@ -435,8 +448,7 @@ describe('IndexedDB Offline Storage', () => {
 			resourceId: 'ws-1',
 			localData: { name: 'Local Name' },
 			serverData: { name: 'Server Name' },
-			detectedAt: new Date().toISOString(),
-			resolved: false,
+			strategy: 'manual',
 		};
 
 		it('should save conflict', async () => {
@@ -458,8 +470,12 @@ describe('IndexedDB Offline Storage', () => {
 		});
 
 		it('should get unresolved conflicts', async () => {
-			const unresolved = { ...mockConflict, id: 'conflict-1', resolved: false };
-			const resolved = { ...mockConflict, id: 'conflict-2', resolved: true };
+			const unresolved = { ...mockConflict, id: 'conflict-1' };
+			const resolved = {
+				...mockConflict,
+				id: 'conflict-2',
+				resolvedAt: new Date().toISOString(),
+			};
 
 			await conflictsStore.save(unresolved);
 			await conflictsStore.save(resolved);
@@ -472,11 +488,14 @@ describe('IndexedDB Offline Storage', () => {
 		it('should mark conflict as resolved', async () => {
 			await conflictsStore.save(mockConflict);
 
-			const updated = { ...mockConflict, resolved: true };
+			const updated = {
+				...mockConflict,
+				resolvedAt: new Date().toISOString(),
+			};
 			await conflictsStore.save(updated);
 
 			const retrieved = await conflictsStore.get(mockConflict.id);
-			expect(retrieved?.resolved).toBe(true);
+			expect(retrieved?.resolvedAt).toBeDefined();
 		});
 
 		it('should delete conflict', async () => {
@@ -495,20 +514,24 @@ describe('IndexedDB Offline Storage', () => {
 				id: 'ws-1',
 				name: 'Test',
 				description: 'Test',
-				settings: {},
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
+				settings: { theme: 'dark', autoSave: true },
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 
 			await runStore.save({
 				id: 'run-1',
-				workspace_id: 'ws-1',
+				workspaceId: 'ws-1',
+				promptText: 'Test',
+				contextBlockIds: [],
 				model: 'claude-3.5-sonnet',
-				prompt: 'Test',
-				response: 'Test',
-				total_tokens: 100,
+				provider: 'anthropic',
+				output: 'Test',
+				tokensUsed: 100,
 				cost: 0.01,
-				created_at: new Date().toISOString(),
+				latencyMs: 1200,
+				status: 'completed',
+				createdAt: new Date().toISOString(),
 			});
 
 			await syncMetadataStore.save({
@@ -548,20 +571,24 @@ describe('IndexedDB Offline Storage', () => {
 				id: 'ws-1',
 				name: 'Test',
 				description: 'Test',
-				settings: {},
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
+				settings: { theme: 'dark', autoSave: true },
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
 			});
 
 			await runStore.save({
 				id: 'run-1',
-				workspace_id: 'ws-1',
+				workspaceId: 'ws-1',
+				promptText: 'Test',
+				contextBlockIds: [],
 				model: 'claude-3.5-sonnet',
-				prompt: 'Test',
-				response: 'Test',
-				total_tokens: 100,
+				provider: 'anthropic',
+				output: 'Test',
+				tokensUsed: 100,
 				cost: 0.01,
-				created_at: new Date().toISOString(),
+				latencyMs: 1200,
+				status: 'completed',
+				createdAt: new Date().toISOString(),
 			});
 
 			await pendingOperationsStore.add({

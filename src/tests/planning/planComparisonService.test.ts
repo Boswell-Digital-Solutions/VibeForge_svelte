@@ -11,6 +11,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PlanComparisonService } from '$lib/workbench/planning/services/planComparisonService';
+import { calculateCombinedScore } from '$lib/workbench/planning/types';
 import type { PlanningSession } from '$lib/workbench/planning/types';
 
 // Mock planning sessions for testing
@@ -23,38 +24,55 @@ const mockSessionA: PlanningSession = {
 		type: 'default',
 		name: 'Default Planning',
 		description: 'Balanced 4-stage workflow',
+		estimatedDuration: 30,
+		maxIterations: 3,
 		stages: []
 	},
 	stages: [
 		{
 			id: 'stage_0',
-			type: 'initial',
+			index: 0,
 			config: {} as any,
 			status: 'completed',
 			input: 'Implement user authentication',
 			output:
 				'## Overview\nComplete authentication system.\n\n## Phase 1\nSetup infrastructure.\n\n## Acceptance Criteria\nUsers can login.\n\n## Testing\nUnit tests for auth.',
-			context: [],
-			tokens: { input: 100, output: 200, total: 300 },
-			cost: 0.015,
+			result: null,
+			error: null,
+			previousContext: [],
+			userInjections: [],
 			startedAt: new Date('2025-01-01T10:00:00Z'),
 			completedAt: new Date('2025-01-01T10:02:00Z')
 		}
 	],
 	deliverable: {
-		implementationPlan:
-			'## Overview\nComplete authentication system with JWT tokens.\n\n## Phase 1: Infrastructure\nSetup database and API endpoints.\n\n## Phase 2: Implementation\nImplement login/logout.\n\n## Acceptance Criteria\n- Users can register\n- Users can login\n- Tokens expire after 1 hour\n\n## Testing Strategy\nUnit tests for all endpoints.\n\n## Deployment Plan\nDeploy to staging first.',
-		claudeCodePrompt: 'Implement the authentication system as described.',
+		implementationPlan: {
+			content:
+				'## Overview\nComplete authentication system with JWT tokens.\n\n## Phase 1: Infrastructure\nSetup database and API endpoints.\n\n## Phase 2: Implementation\nImplement login/logout.\n\n## Acceptance Criteria\n- Users can register\n- Users can login\n- Tokens expire after 1 hour\n\n## Testing Strategy\nUnit tests for all endpoints.\n\n## Deployment Plan\nDeploy to staging first.',
+			filename: 'auth_plan.md'
+		},
+		claudeCodePrompt: {
+			content: 'Implement the authentication system as described.',
+			filename: 'auth_prompt.md'
+		},
 		metadata: {
 			title: 'User Authentication',
 			estimatedTime: '2 weeks',
-			phases: 2,
+			phases: ['Infrastructure', 'Implementation'],
 			successCriteria: ['Registration works', 'Login works']
 		}
 	},
 	status: 'completed',
+	currentStageIndex: 0,
+	totalTokens: 300,
+	totalCost: 0.015,
 	createdAt: new Date('2025-01-01T10:00:00Z'),
-	completedAt: new Date('2025-01-01T10:05:00Z')
+	startedAt: new Date('2025-01-01T10:00:00Z'),
+	pausedAt: null,
+	completedAt: new Date('2025-01-01T10:05:00Z'),
+	error: null,
+	userId: 'user_test',
+	workspaceId: 'ws_test'
 };
 
 const mockSessionB: PlanningSession = {
@@ -66,38 +84,55 @@ const mockSessionB: PlanningSession = {
 		type: 'quick',
 		name: 'Quick Planning',
 		description: 'Fast 2-stage workflow',
+		estimatedDuration: 30,
+		maxIterations: 3,
 		stages: []
 	},
 	stages: [
 		{
 			id: 'stage_0',
-			type: 'initial',
+			index: 0,
 			config: {} as any,
 			status: 'completed',
 			input: 'Implement user authentication',
 			output:
 				'## Overview\nBasic auth system.\n\n## Implementation\nUse OAuth.\n\n## Testing\nManual testing.',
-			context: [],
-			tokens: { input: 80, output: 150, total: 230 },
-			cost: 0.0115,
+			result: null,
+			error: null,
+			previousContext: [],
+			userInjections: [],
 			startedAt: new Date('2025-01-01T11:00:00Z'),
 			completedAt: new Date('2025-01-01T11:01:30Z')
 		}
 	],
 	deliverable: {
-		implementationPlan:
-			'## Overview\nBasic authentication using OAuth 2.0.\n\n## Implementation Steps\n1. Setup OAuth provider\n2. Implement callback\n3. Store tokens\n\n## Testing\nManual testing with real accounts.',
-		claudeCodePrompt: 'Implement OAuth authentication.',
+		implementationPlan: {
+			content:
+				'## Overview\nBasic authentication using OAuth 2.0.\n\n## Implementation Steps\n1. Setup OAuth provider\n2. Implement callback\n3. Store tokens\n\n## Testing\nManual testing with real accounts.',
+			filename: 'oauth_plan.md'
+		},
+		claudeCodePrompt: {
+			content: 'Implement OAuth authentication.',
+			filename: 'oauth_prompt.md'
+		},
 		metadata: {
 			title: 'OAuth Authentication',
 			estimatedTime: '1 week',
-			phases: 1,
+			phases: ['Implementation'],
 			successCriteria: ['OAuth login works']
 		}
 	},
 	status: 'completed',
+	currentStageIndex: 0,
+	totalTokens: 230,
+	totalCost: 0.0115,
 	createdAt: new Date('2025-01-01T11:00:00Z'),
-	completedAt: new Date('2025-01-01T11:03:00Z')
+	startedAt: new Date('2025-01-01T11:00:00Z'),
+	pausedAt: null,
+	completedAt: new Date('2025-01-01T11:03:00Z'),
+	error: null,
+	userId: 'user_test',
+	workspaceId: 'ws_test'
 };
 
 describe('PlanComparisonService', () => {
@@ -139,7 +174,23 @@ describe('PlanComparisonService', () => {
 		});
 
 		it('should score detail based on word count and specificity', () => {
-			const assessment = service.scoreQuality(mockSessionA);
+			const detailedPlan = [
+				'## Overview',
+				'detail '.repeat(520),
+				'API database component service interface class function '.repeat(2)
+			].join('\n');
+			const detailedSession = {
+				...mockSessionA,
+				deliverable: {
+					...mockSessionA.deliverable!,
+					implementationPlan: {
+						content: detailedPlan,
+						filename: 'detailed_plan.md'
+					}
+				}
+			};
+
+			const assessment = service.scoreQuality(detailedSession);
 			const detail = assessment.criterionScores.find((c) => c.criterion === 'detail');
 			expect(detail).toBeDefined();
 			expect(detail!.score).toBeGreaterThan(0);
@@ -327,20 +378,37 @@ describe('PlanComparisonService', () => {
 	});
 
 	describe('Winner Determination', () => {
-		it('should select session with higher quality score if quality difference is significant', () => {
-			// Mock sessions where A has much better quality
+		it('should select the session with the higher combined score', () => {
 			const comparison = service.comparePlans(mockSessionA, mockSessionB);
-			const qualityA = comparison.qualityScores.sessionA.overallScore;
-			const qualityB = comparison.qualityScores.sessionB.overallScore;
+			expect(comparison.winner).not.toBeNull();
 
-			if (Math.abs(qualityA - qualityB) > 10 && comparison.winner) {
-				// If quality difference > 10 points, winner should be based on quality
-				const winnerQuality =
-					comparison.winner.sessionId === mockSessionA.id ? qualityA : qualityB;
-				const loserQuality =
-					comparison.winner.sessionId === mockSessionA.id ? qualityB : qualityA;
-				expect(winnerQuality).toBeGreaterThan(loserQuality);
-			}
+			const durationA =
+				mockSessionA.completedAt!.getTime() - mockSessionA.startedAt!.getTime();
+			const durationB =
+				mockSessionB.completedAt!.getTime() - mockSessionB.startedAt!.getTime();
+			const maxCost = Math.max(mockSessionA.totalCost, mockSessionB.totalCost);
+			const maxDuration = Math.max(durationA, durationB);
+
+			const scoreA = calculateCombinedScore(
+				comparison.qualityScores.sessionA.overallScore,
+				mockSessionA.totalCost,
+				durationA,
+				maxCost,
+				maxDuration
+			);
+			const scoreB = calculateCombinedScore(
+				comparison.qualityScores.sessionB.overallScore,
+				mockSessionB.totalCost,
+				durationB,
+				maxCost,
+				maxDuration
+			);
+
+			expect(comparison.winner!.sessionId).toBe(
+				scoreA >= scoreB ? mockSessionA.id : mockSessionB.id
+			);
+			expect(comparison.winner!.reason).toBe('combined');
+			expect(comparison.winner!.score).toBe(Math.max(scoreA, scoreB));
 		});
 
 		it('should include combined score in winner determination', () => {
@@ -373,21 +441,24 @@ describe('PlanComparisonService', () => {
 		it('should handle empty plan content', () => {
 			const sessionWithEmptyPlan = {
 				...mockSessionA,
-				deliverable: { ...mockSessionA.deliverable!, implementationPlan: '' }
+				deliverable: {
+					...mockSessionA.deliverable!,
+					implementationPlan: { content: '', filename: 'empty_plan.md' }
+				}
 			};
 			const assessment = service.scoreQuality(sessionWithEmptyPlan);
 			expect(assessment.overallScore).toBeGreaterThanOrEqual(0);
 		});
 
 		it('should handle sessions with no stages', () => {
-			const sessionNoStages = { ...mockSessionA, stages: [] };
+			const sessionNoStages = { ...mockSessionA, stages: [], totalTokens: 0 };
 			const comparison = service.comparePlans(sessionNoStages, mockSessionB);
 			expect(comparison.metricsComparison.sessionA.stageCount).toBe(0);
 			expect(comparison.metricsComparison.sessionA.totalTokens).toBe(0);
 		});
 
 		it('should handle sessions without completion time', () => {
-			const sessionNoCompletion = { ...mockSessionA, completedAt: undefined };
+			const sessionNoCompletion = { ...mockSessionA, completedAt: null };
 			const comparison = service.comparePlans(sessionNoCompletion, mockSessionB);
 			expect(comparison.metricsComparison.sessionA.durationMs).toBe(0);
 		});

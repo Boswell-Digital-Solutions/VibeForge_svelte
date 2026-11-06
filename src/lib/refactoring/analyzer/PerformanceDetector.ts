@@ -74,12 +74,48 @@ export class PerformanceDetector {
 			});
 		}
 
-		// Detect array methods in loops
-		lines.forEach((line, index) => {
-			const hasLoop = /\bfor\s*\(/.test(line) || /\bwhile\s*\(/.test(line);
-			const hasArrayMethod = /\.(?:push|concat|splice|shift|unshift)\(/.test(line);
+		// Detect array mutation inside loop bodies. The mutation normally sits on a
+		// line below the loop header, so track where each body opens instead of
+		// demanding both on the same line.
+		//
+		// Brace counting is load-bearing. Matching only a bare `}` never closed a
+		// callback body, which ends `});`, and a single-line `.map(...)` opened a
+		// level that nothing closed, so the depth leaked over the rest of the file
+		// and reported mutations that were in no loop at all.
+		let braceDepth = 0;
+		const loopBodyDepths: number[] = [];
 
-			if (hasLoop && hasArrayMethod) {
+		lines.forEach((line, index) => {
+			const trimmed = line.trim();
+			const opensLoop =
+				/\bfor\s*\(/.test(trimmed) ||
+				/\bwhile\s*\(/.test(trimmed) ||
+				/\.forEach\(/.test(trimmed) ||
+				/\.map\(/.test(trimmed);
+			const hasArrayMethod = /\.(?:push|concat|splice|shift|unshift)\(/.test(trimmed);
+
+			const opens = (line.match(/\{/g) ?? []).length;
+			const closes = (line.match(/\}/g) ?? []).length;
+
+			// Close every body this line ends before judging the line itself.
+			const depthAfterCloses = braceDepth - closes;
+			while (
+				loopBodyDepths.length > 0 &&
+				depthAfterCloses <= loopBodyDepths[loopBodyDepths.length - 1]
+			) {
+				loopBodyDepths.pop();
+			}
+
+			const insideLoopBody = loopBodyDepths.length > 0;
+
+			// A loop whose body opens on this line governs the lines below it, not
+			// this one. A single-line loop opens no body and governs nothing.
+			if (opensLoop && opens > closes) {
+				loopBodyDepths.push(braceDepth);
+			}
+			braceDepth += opens - closes;
+
+			if (insideLoopBody && hasArrayMethod) {
 				issues.push({
 					id: `loop-array-mutation-${filename}-${index}`,
 					severity: 'info',
@@ -182,10 +218,10 @@ export class PerformanceDetector {
 		const lines = content.split('\n');
 
 		const blockingPatterns = [
-			{ pattern: /fs\.readFileSync\(/g, name: 'fs.readFileSync' },
-			{ pattern: /fs\.writeFileSync\(/g, name: 'fs.writeFileSync' },
-			{ pattern: /execSync\(/g, name: 'execSync' },
-			{ pattern: /crypto\.pbkdf2Sync\(/g, name: 'crypto.pbkdf2Sync' }
+			{ pattern: /fs\.readFileSync\(/, name: 'fs.readFileSync' },
+			{ pattern: /fs\.writeFileSync\(/, name: 'fs.writeFileSync' },
+			{ pattern: /execSync\(/, name: 'execSync' },
+			{ pattern: /crypto\.pbkdf2Sync\(/, name: 'crypto.pbkdf2Sync' }
 		];
 
 		blockingPatterns.forEach(({ pattern, name }) => {
@@ -289,7 +325,8 @@ export class PerformanceDetector {
 		lines.forEach((line, index) => {
 			largeLibraries.forEach(lib => {
 				// Default import of large library
-				if (new RegExp(`import\\s+\\w+\\s+from\\s+["']${lib}["']`).test(line)) {
+				// [\w$] so `import $ from 'jquery'` and `import _ from 'lodash'` match.
+				if (new RegExp(`import\\s+[\\w$]+\\s+from\\s+["']${lib}["']`).test(line)) {
 					issues.push({
 						id: `large-import-${filename}-${index}`,
 						severity: 'info',

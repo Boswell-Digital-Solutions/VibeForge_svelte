@@ -38,7 +38,39 @@ describe('Analysis Store', () => {
 			sourceFiles: 8
 		},
 		techStack: { framework: 'sveltekit', language: 'typescript', stateManagement: 'svelte-runes', dependencies: [] },
-		metrics: { totalFiles: 10, totalLines: 1000, testCoverage: { lines: 80, branches: 75, functions: 85, statements: 80 } },
+		metrics: {
+			testCoverage: {
+				lines: 80,
+				branches: 75,
+				functions: 85,
+				statements: 80,
+				uncoveredFiles: [],
+				totalTests: 10,
+				passingTests: 10,
+				failingTests: 0
+			},
+			typeSafety: {
+				totalFiles: 10,
+				typedFiles: 10,
+				jsFiles: 0,
+				anyTypeCount: 0,
+				typeErrorCount: 0,
+				strictMode: true,
+				noImplicitAny: true,
+				typeCheckPassed: true
+			},
+			quality: {
+				avgFileSize: 100,
+				largestFile: { path: 'src/big.ts', lines: 300 },
+				avgFunctionLength: 12,
+				maxComplexity: 5,
+				todoCount: 0,
+				fixmeCount: 0,
+				eslintErrors: 0,
+				eslintWarnings: 0
+			},
+			size: { totalLines: 1000, codeLines: 800, commentLines: 120, blankLines: 80 }
+		},
 		patterns: [],
 		issues: [mockIssue],
 		summary: {
@@ -53,7 +85,7 @@ describe('Analysis Store', () => {
 		// Reset store state before each test
 		analysisStore.clearAnalysis();
 		analysisStore.setAnalyzing(false);
-		analysisStore.setError('');
+		analysisStore.setError(null);
 	});
 
 	// ============================================================================

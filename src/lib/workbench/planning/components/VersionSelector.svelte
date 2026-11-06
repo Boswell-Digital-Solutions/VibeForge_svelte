@@ -129,7 +129,7 @@ function formatTimestamp(date: Date): string {
 <style>
 	.version-selector {
 		background: white;
-		border: 1px solid theme('colors.gray.200');
+		border: 1px solid var(--color-gray-200);
 		border-radius: 0.5rem;
 		padding: 1rem;
 	}
@@ -138,7 +138,7 @@ function formatTimestamp(date: Date): string {
 		display: block;
 		font-size: 0.875rem;
 		font-weight: 600;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 		margin-bottom: 0.5rem;
 	}
 
@@ -151,7 +151,7 @@ function formatTimestamp(date: Date): string {
 	.version-select {
 		flex: 1;
 		padding: 0.5rem 0.75rem;
-		border: 1px solid theme('colors.gray.300');
+		border: 1px solid var(--color-gray-300);
 		border-radius: 0.375rem;
 		font-size: 0.875rem;
 		background: white;
@@ -160,7 +160,7 @@ function formatTimestamp(date: Date): string {
 
 	.version-select:focus {
 		outline: none;
-		border-color: theme('colors.blue.500');
+		border-color: var(--color-blue-500);
 		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 	}
 
@@ -177,8 +177,8 @@ function formatTimestamp(date: Date): string {
 		min-width: 1.5rem;
 		height: 1.5rem;
 		padding: 0 0.375rem;
-		background: theme('colors.blue.100');
-		color: theme('colors.blue.700');
+		background: var(--color-blue-100);
+		color: var(--color-blue-700);
 		border-radius: 9999px;
 		font-size: 0.75rem;
 		font-weight: 600;
@@ -186,13 +186,13 @@ function formatTimestamp(date: Date): string {
 
 	.count-label {
 		font-size: 0.75rem;
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 	}
 
 	.version-details {
 		margin-top: 1rem;
 		padding-top: 1rem;
-		border-top: 1px solid theme('colors.gray.200');
+		border-top: 1px solid var(--color-gray-200);
 	}
 
 	.detail-item {
@@ -205,37 +205,37 @@ function formatTimestamp(date: Date): string {
 
 	.detail-label {
 		font-weight: 500;
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 	}
 
 	.detail-value {
 		font-weight: 600;
-		color: theme('colors.gray.800');
+		color: var(--color-gray-800);
 	}
 
 	.detail-value.status-completed {
-		color: theme('colors.green.600');
+		color: var(--color-green-600);
 	}
 
 	.detail-value.status-failed {
-		color: theme('colors.red.600');
+		color: var(--color-red-600);
 	}
 
 	.detail-value.status-cancelled {
-		color: theme('colors.gray.600');
+		color: var(--color-gray-600);
 	}
 
 	.refinement-info {
 		margin-top: 0.75rem;
 		padding: 0.75rem;
-		background: theme('colors.blue.50');
+		background: var(--color-blue-50);
 		border-radius: 0.375rem;
 	}
 
 	.refinement-header {
 		font-size: 0.75rem;
 		font-weight: 600;
-		color: theme('colors.blue.700');
+		color: var(--color-blue-700);
 		margin-bottom: 0.5rem;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -251,7 +251,7 @@ function formatTimestamp(date: Date): string {
 		position: relative;
 		padding-left: 1rem;
 		font-size: 0.813rem;
-		color: theme('colors.gray.700');
+		color: var(--color-gray-700);
 		margin-bottom: 0.25rem;
 	}
 
@@ -259,7 +259,7 @@ function formatTimestamp(date: Date): string {
 		content: '•';
 		position: absolute;
 		left: 0;
-		color: theme('colors.blue.600');
+		color: var(--color-blue-600);
 		font-weight: bold;
 	}
 
@@ -273,8 +273,8 @@ function formatTimestamp(date: Date): string {
 		justify-content: center;
 		gap: 0.5rem;
 		padding: 2rem;
-		background: theme('colors.gray.50');
-		border: 1px dashed theme('colors.gray.300');
+		background: var(--color-gray-50);
+		border: 1px dashed var(--color-gray-300);
 		border-radius: 0.5rem;
 	}
 
@@ -284,63 +284,63 @@ function formatTimestamp(date: Date): string {
 
 	.no-versions-text {
 		font-size: 0.875rem;
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 	}
 
 	:global(.dark) .version-selector {
-		background: theme('colors.gray.800');
-		border-color: theme('colors.gray.700');
+		background: var(--color-gray-800);
+		border-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .selector-label {
-		color: theme('colors.gray.300');
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .version-select {
-		background: theme('colors.gray.700');
-		border-color: theme('colors.gray.600');
-		color: theme('colors.gray.100');
+		background: var(--color-gray-700);
+		border-color: var(--color-gray-600);
+		color: var(--color-gray-100);
 	}
 
 	:global(.dark) .count-badge {
-		background: theme('colors.blue.900');
-		color: theme('colors.blue.300');
+		background: var(--color-blue-900);
+		color: var(--color-blue-300);
 	}
 
 	:global(.dark) .count-label {
-		color: theme('colors.gray.400');
+		color: var(--color-gray-400);
 	}
 
 	:global(.dark) .version-details {
-		border-top-color: theme('colors.gray.700');
+		border-top-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .detail-label {
-		color: theme('colors.gray.400');
+		color: var(--color-gray-400);
 	}
 
 	:global(.dark) .detail-value {
-		color: theme('colors.gray.200');
+		color: var(--color-gray-200);
 	}
 
 	:global(.dark) .refinement-info {
-		background: theme('colors.gray.900');
+		background: var(--color-gray-900);
 	}
 
 	:global(.dark) .refinement-header {
-		color: theme('colors.blue.400');
+		color: var(--color-blue-400);
 	}
 
 	:global(.dark) .refinement-item {
-		color: theme('colors.gray.300');
+		color: var(--color-gray-300);
 	}
 
 	:global(.dark) .no-versions {
-		background: theme('colors.gray.900');
-		border-color: theme('colors.gray.700');
+		background: var(--color-gray-900);
+		border-color: var(--color-gray-700);
 	}
 
 	:global(.dark) .no-versions-text {
-		color: theme('colors.gray.500');
+		color: var(--color-gray-500);
 	}
 </style>

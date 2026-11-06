@@ -9,7 +9,13 @@ export default defineConfig({
     globals: true,
     setupFiles: [path.resolve(__dirname, "./src/tests/setup.ts")],
     include: ["src/**/*.{test,spec}.{js,ts}", "tools/**/*.{test,spec}.{js,ts}"],
-    exclude: ["**/node_modules/**", "**/llm_old/**"],
+    exclude: [
+      "**/node_modules/**",
+      "**/llm_old/**",
+      // StateForge's suites import "bun:test" and run under Bun via the
+      // qc:stateforge script. Vite cannot bundle that built-in module.
+      "tools/stateforge/**",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

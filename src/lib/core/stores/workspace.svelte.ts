@@ -259,17 +259,17 @@ async function create(data: CreateWorkspaceRequest) {
   state.isSaving = true;
   state.error = null;
 
-  try {
-    // Create workspace ID
-    const workspaceId = `ws-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  // Declared before the try so the rollback in catch can still see it.
+  const workspaceId = `ws-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+  try {
     const newWorkspace: Workspace = {
       id: workspaceId,
       name: data.name,
       description: data.description || '',
       settings: data.settings || { theme: 'dark', autoSave: true },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // Optimistically update UI immediately
@@ -285,8 +285,21 @@ async function create(data: CreateWorkspaceRequest) {
     // Save using sync manager (saves to IndexedDB + syncs to server)
     const savedWorkspace = await sync.saveWorkspace(newWorkspace);
 
+    // Reconcile the optimistic record: the saved one carries the canonical id,
+    // so leaving the placeholder in the list strands a workspace that the
+    // server never had under that id.
+    state.workspaces = state.workspaces.map((workspace) =>
+      workspace.id === workspaceId ? savedWorkspace : workspace
+    );
+    if (state.current?.id === workspaceId) {
+      state.current = savedWorkspace;
+    }
+    if (savedWorkspace.id !== workspaceId) {
+      state.syncMetadata.delete(workspaceId);
+    }
+
     // Update sync metadata on success
-    updateSyncMetadata(workspaceId, {
+    updateSyncMetadata(savedWorkspace.id, {
       status: 'synced',
       lastSynced: new Date(),
       pendingChanges: false,
@@ -294,6 +307,15 @@ async function create(data: CreateWorkspaceRequest) {
 
     return savedWorkspace;
   } catch (err) {
+    // Roll back the optimistic insert: this workspace was never created.
+    state.workspaces = state.workspaces.filter(
+      (workspace) => workspace.id !== workspaceId
+    );
+    if (state.current?.id === workspaceId) {
+      state.current = null;
+    }
+    state.syncMetadata.delete(workspaceId);
+
     state.error = err instanceof Error ? err.message : 'Failed to create workspace';
     throw err;
   } finally {
@@ -321,7 +343,7 @@ async function update(id: string, data: Partial<CreateWorkspaceRequest>) {
       name: data.name ?? existing.name,
       description: data.description ?? existing.description,
       settings: data.settings ?? existing.settings,
-      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // Optimistically update UI immediately

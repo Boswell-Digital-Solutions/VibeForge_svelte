@@ -23,6 +23,7 @@ import type {
 	LicenseTier,
 	LicenseValidationResponse
 } from '$lib/core/types/license';
+import { LICENSE_API_URL } from '$lib/core/api/endpoints';
 
 // ============================================================================
 // CONSTANTS
@@ -30,7 +31,7 @@ import type {
 
 const STORAGE_KEY = 'vibeforge-license';
 const VALIDATION_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-const API_ENDPOINT = 'http://localhost:8002/license';
+const API_ENDPOINT = LICENSE_API_URL;
 
 // ============================================================================
 // LICENSE STATE

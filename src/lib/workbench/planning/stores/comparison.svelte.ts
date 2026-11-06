@@ -16,6 +16,7 @@ import type {
 	ComparisonReport,
 	ExportFormat
 } from '../types';
+import { calculateCombinedScore } from '../types';
 import { planComparisonService } from '../services/planComparisonService';
 
 /**
@@ -192,7 +193,7 @@ function createMultiWayComparison(sessions: PlanningSession[], title: string): v
 
 			return {
 				sessionId: session.id,
-				pipeline: session.config.type,
+				pipeline: session.pipeline.type,
 				totalTokens: session.totalTokens,
 				totalCost: session.totalCost,
 				durationMs: duration,
@@ -245,8 +246,6 @@ function createMultiWayComparison(sessions: PlanningSession[], title: string): v
 						? session.completedAt.getTime() - session.startedAt.getTime()
 						: 0;
 
-				// Import calculateCombinedScore
-				const { calculateCombinedScore } = await import('../types/planComparison');
 				const score = calculateCombinedScore(
 					quality,
 					session.totalCost,
@@ -334,7 +333,16 @@ function clearCurrentComparison(): void {
 function clearAllComparisons(): void {
 	state.comparisonHistory = [];
 	state.currentComparison = null;
-	saveToStorage([]);
+
+	// Remove the key rather than persisting an empty array, so a cleared
+	// history leaves nothing behind.
+	if (typeof window !== 'undefined') {
+		try {
+			localStorage.removeItem(STORAGE_KEY);
+		} catch (err) {
+			console.error('Failed to clear comparisons from localStorage:', err);
+		}
+	}
 }
 
 /**
@@ -472,7 +480,7 @@ function generateComparisonReport(
  * Format report as Markdown
  */
 function formatAsMarkdown(report: ComparisonReport): string {
-	let md = `# ${report.title}\n\n`;
+	let md = `# Plan Comparison\n\n## ${report.title}\n\n`;
 	md += `**Generated:** ${report.generatedAt.toLocaleString()}\n\n`;
 
 	// Executive Summary

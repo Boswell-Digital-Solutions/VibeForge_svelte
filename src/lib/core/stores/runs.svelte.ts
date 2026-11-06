@@ -14,6 +14,7 @@
  */
 
 import type { PromptRun, RunStatus, Model, ContextBlock } from '$lib/core/types';
+import { toApiRun, toPromptRun } from '$lib/core/api/runMapping';
 import { executePromptSimplified, type SimplifiedExecuteResponse } from '$lib/core/api/neuroforgeClient';
 import {
   ExecutionOrchestrator,
@@ -176,6 +177,10 @@ function updateSyncMetadata(runId: string, updates: Partial<RunSyncMetadata>) {
   state.syncMetadata.set(runId, updated);
 }
 
+function getSyncMetadata(runId: string): RunSyncMetadata | undefined {
+  return state.syncMetadata.get(runId);
+}
+
 function handleRemoteRunUpdate(update: any) {
   const { type, resourceId, data } = update;
 
@@ -243,7 +248,7 @@ async function addRun(run: PromptRun) {
 
   // Save using sync manager (saves to IndexedDB + syncs to server)
   try {
-    await sync.saveRun(run);
+    await sync.saveRun(toApiRun(run));
 
     // Update sync metadata on success
     updateSyncMetadata(run.id, {
@@ -282,7 +287,7 @@ async function updateRun(id: string, updates: Partial<PromptRun>) {
 
   // Save using sync manager
   try {
-    await sync.saveRun(updatedRun);
+    await sync.saveRun(toApiRun(updatedRun));
 
     // Update sync metadata on success
     updateSyncMetadata(id, {
@@ -366,7 +371,7 @@ async function loadHistory(workspaceId?: string, limit?: number) {
 
   try {
     // Use sync manager to get runs (handles offline fallback)
-    const runs = await sync.listRuns(workspaceId);
+    const runs = (await sync.listRuns(workspaceId)).map(toPromptRun);
 
     // Apply limit if specified
     const limitedRuns = limit ? runs.slice(0, limit) : runs;
@@ -395,9 +400,11 @@ async function loadHistory(workspaceId?: string, limit?: number) {
  * Delete run (optimistic update)
  */
 async function deleteRun(id: string) {
+  // Captured before the try so the rollback in catch can still see it.
+  const runToDelete = state.runs.find(r => r.id === id);
+
   try {
     // Optimistically remove from UI
-    const runToDelete = state.runs.find(r => r.id === id);
     state.runs = state.runs.filter(r => r.id !== id);
 
     if (state.activeRunId === id) {
@@ -748,6 +755,7 @@ export const runsStore = {
   setError,
   getRunById,
   getRunsByModel,
+  getSyncMetadata,
 
   // CRUD with offline-first sync
   loadHistory,

@@ -7,9 +7,10 @@
 
 import type { Model, PromptRun, ApiResponse } from "$lib/core/types";
 import { getAuthHeader } from "$lib/auth";
+import { NEUROFORGE_URL } from "./endpoints";
 
 const NEUROFORGE_BASE_URL =
-  import.meta.env.VITE_NEUROFORGE_URL || "http://localhost:8000";
+  NEUROFORGE_URL;
 const API_VERSION = "v1";
 
 interface NeuroForgeError {

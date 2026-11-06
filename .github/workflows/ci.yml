@@ -28,7 +28,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,7 +53,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -79,15 +79,22 @@ jobs:
           path: coverage/
           retention-days: 30
 
-  e2e-tests:
-    name: E2E Tests
+  # PR smoke lane. A bounded, explicitly tagged critical-path subset, hermetic,
+  # Chromium only, and blocking.
+  #
+  # Full browser coverage is not here. It runs in e2e-full.yml, by dispatch or
+  # at release qualification. Before the split this job ran all 143 specs on
+  # three browsers, and most of them need a local service stack CI does not
+  # run, so every job was cancelled at the 30-minute cap and reported nothing.
+  # See doc/system/50-operations.md.
+  #
+  # To put a test in this lane, tag it `@smoke`. Keep the lane bounded: it
+  # exists to catch a broken critical path in under a minute, not to cover the
+  # product.
+  e2e-smoke:
+    name: E2E Smoke (chromium)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -96,7 +103,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -108,10 +115,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+        # The setup project (tests/e2e/auth.setup.ts) declares no browser, so it
+        # runs in chromium, and every browser project depends on it. This lane
+        # is chromium only; the other browsers run in e2e-full.yml.
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: pnpm test:e2e --project=${{ matrix.browser }}
+        run: pnpm test:e2e:smoke
         env:
           CI: true
 
@@ -119,7 +129,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-${{ matrix.browser }}
+          name: playwright-report-smoke
           path: playwright-report/
           retention-days: 30
 
@@ -127,9 +137,70 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-${{ matrix.browser }}
+          name: test-results-smoke
           path: test-results/
           retention-days: 30
+
+  # The Rust side of the desktop app had no CI at all until this job, so
+  # nothing under src-tauri/ was ever compiled or tested by a pull request.
+  #
+  # It covers the library target only, which today is the local inference
+  # bridge. That is not a preference: `cargo test` builds every target,
+  # including the `vibeforge` binary, whose `generate_context!` reads
+  # `frontendDist` and panics because `pnpm build` produces no `build/`
+  # directory under the configured adapter. So the binary cannot be compiled
+  # here, and `--lib` is what is honestly verifiable. See
+  # docs/KNOWN_ISSUES.md (KI-VBF-20261030-001) for the adapter question and
+  # KI-VBF-20261030-002 for the formatting scope below.
+  #
+  # No path filter: status-check below treats a skipped job as a failure, so a
+  # filtered job would block every pull request that did not touch src-tauri/.
+  rust-bridge:
+    name: Rust Bridge (lib)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Tauri system dependencies
+        # Exactly what the library's dependency tree links against, taken from
+        # the `cargo:rustc-link-lib` lines its build scripts emit:
+        # webkit2gtk-4.1, javascriptcoregtk-4.1, soup-3.0, gtk-3, gdk-3, atk,
+        # cairo, pango, glib, gio, gdk-pixbuf. The webkit package pulls the
+        # javascriptcore and soup development files in with it. librsvg and
+        # appindicator are bundler and tray dependencies, and neither feature
+        # is enabled, so they are not installed.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      - name: Cache cargo and build output
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Check formatting
+        # Scoped to this slice's files rather than the crate. `cargo fmt`
+        # follows `mod` declarations, so checking the crate reaches the 36
+        # pre-existing files under src-tauri/src/ that are not rustfmt-clean,
+        # and reformatting them is not this change's business. `rustfmt` on
+        # explicit paths does not follow those declarations.
+        # src/lib.rs declares only `pub mod neuronforge`, so these three files
+        # are the whole library target.
+        working-directory: src-tauri
+        run: rustfmt --check --edition 2024 src/lib.rs src/neuronforge/mod.rs src/neuronforge/tests.rs
+
+      - name: Clippy
+        # `--lib` for the same reason as the tests, and because --all-targets
+        # would reach the binaries' pre-existing warnings, which -D warnings
+        # would then turn into failures.
+        working-directory: src-tauri
+        run: cargo clippy --lib -- -D warnings
+
+      - name: Test
+        working-directory: src-tauri
+        run: cargo test --lib
 
   build:
     name: Build
@@ -143,7 +214,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -157,25 +228,65 @@ jobs:
       - name: Build application
         run: pnpm build
 
+      # Until adapter-static landed, this job was green while producing
+      # nothing: `pnpm build` exited 0 under adapter-auto, which detects no
+      # hosting platform here and writes no `build/`, and the upload step
+      # below defaulted to warning about the empty path. The desktop binary
+      # then could not be compiled, because `frontendDist` names `../build`.
+      # These assertions exist so that failure can never be silent again.
+      - name: Assert the production artifact exists
+        # Deliberately only the three things needed to run the verifier at all,
+        # so a missing artifact fails before a browser is launched with a clear
+        # message. Per-route coverage is NOT here: an earlier version listed 12
+        # route basenames, which caught a renamed route but silently ignored an
+        # added one. The verifier reads src/routes/ instead, so the route list
+        # cannot drift away from the source.
+        run: |
+          set -euo pipefail
+          test -d build || { echo "::error::build/ was not produced"; exit 1; }
+          test -s build/index.html || { echo "::error::build/index.html is missing or empty"; exit 1; }
+          test -d build/_app || { echo "::error::build/_app/ is missing, so nothing can hydrate"; exit 1; }
+          echo "artifact: $(find build -type f | wc -l) files, $(du -sh build | cut -f1)"
+
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Drives the built files over a resolver that behaves like Tauri's. For
+      # every route declared in src/routes/ it requires the browser to render
+      # what that route's prerendered file says it renders, with styles
+      # applied and no unexplained console error, and then requires a live
+      # client: a route change with no document reload, a keyboard shortcut
+      # opening the wizard, and typing flipping a derived value.
+      #
+      # It is checked against deliberately broken artifacts, not assumed to
+      # work. See doc/system/50-operations.md for the list and what each one
+      # breaks.
+      - name: Verify the production artifact
+        run: pnpm verify:artifact
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build
           path: build/
+          # Never warn. An empty upload is how the missing artifact stayed
+          # invisible before.
+          if-no-files-found: error
           retention-days: 7
 
   status-check:
     name: All Tests Passed
     if: always()
     runs-on: ubuntu-latest
-    needs: [lint-and-typecheck, unit-tests, e2e-tests, build]
+    needs: [lint-and-typecheck, unit-tests, rust-bridge, e2e-smoke, build]
 
     steps:
       - name: Check job results
         run: |
           if [ "${{ needs.lint-and-typecheck.result }}" != "success" ] || \
              [ "${{ needs.unit-tests.result }}" != "success" ] || \
-             [ "${{ needs.e2e-tests.result }}" != "success" ] || \
+             [ "${{ needs.rust-bridge.result }}" != "success" ] || \
+             [ "${{ needs.e2e-smoke.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ]; then
             echo "One or more jobs failed"
             exit 1

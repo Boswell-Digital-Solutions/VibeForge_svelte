@@ -1,9 +1,10 @@
 /**
  * NeuroForge API configuration
  */
+import { NEUROFORGE_URL } from "./endpoints";
 
 export const neuroforgeConfig = {
-  baseUrl: import.meta.env.VITE_NEUROFORGE_URL || "http://localhost:8000",
+  baseUrl: NEUROFORGE_URL,
   apiVersion: "v1",
 };
 

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "verify:artifact": "node scripts/verify-production-artifact.mjs",
     "preview": "vite preview",
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -21,6 +22,8 @@
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:e2e:firefox": "playwright test --project=firefox",
     "test:e2e:webkit": "playwright test --project=webkit",
+    "test:e2e:smoke": "playwright test --project=chromium --grep @smoke",
+    "test:e2e:real-auth": "playwright test --project=real-auth",
     "test:e2e:report": "playwright show-report",
     "qc:stateforge": "bun run tools/qc/stateforge.ts",
     "generate:agent-instructions": "bun run tools/repo-context/generate-agent-instructions.ts",
@@ -29,7 +32,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
-    "@sveltejs/adapter-auto": "^7.0.0",
+    "@sveltejs/adapter-static": "^4.0.1",
     "@sveltejs/kit": "^2.47.1",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tailwindcss/vite": "^4.1.17",
@@ -40,6 +43,7 @@
     "@vitest/coverage-v8": "^4.0.14",
     "@vitest/ui": "^4.0.13",
     "autoprefixer": "^10.4.22",
+    "fake-indexeddb": "^6.2.6",
     "happy-dom": "^20.0.10",
     "jsdom": "^27.2.0",
     "postcss": "^8.5.6",

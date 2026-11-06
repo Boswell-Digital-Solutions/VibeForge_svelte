@@ -253,7 +253,11 @@ export class McpClient {
 			}, this.config.timeout);
 
 			// Store pending request
-			this.pendingRequests.set(id, { resolve, reject, timeout });
+			this.pendingRequests.set(id, {
+				resolve: resolve as (result: unknown) => void,
+				reject,
+				timeout
+			});
 
 			// Send request based on transport
 			try {
@@ -265,26 +269,49 @@ export class McpClient {
 						this.websocket.send(JSON.stringify(request));
 						break;
 
-					case 'http':
+					case 'http': {
 						if (!this.config.url) {
 							throw new Error('HTTP URL not provided');
 						}
-						// For HTTP, make a direct fetch request
-						this.sendHttpRequest<T>(request).then(resolve).catch(reject);
-						this.pendingRequests.delete(id);
-						clearTimeout(timeout);
+						// Keep the timeout armed until the request settles. Clearing it
+						// here meant the configured timeout never applied.
+						const settleHttp = () => {
+							this.pendingRequests.delete(id);
+							clearTimeout(timeout);
+						};
+						this.sendHttpRequest<T>(request)
+							.then((result) => {
+								settleHttp();
+								resolve(result);
+							})
+							.catch((error) => {
+								settleHttp();
+								reject(error);
+							});
 						break;
+					}
 
-					case 'sse':
+					case 'sse': {
 						// SSE requires separate POST endpoint for requests
 						if (!this.config.url) {
 							throw new Error('SSE URL not provided');
 						}
 						const postUrl = this.config.url.replace('/events', '/request');
-						this.sendHttpRequest<T>(request, postUrl).then(resolve).catch(reject);
-						this.pendingRequests.delete(id);
-						clearTimeout(timeout);
+						const settleSse = () => {
+							this.pendingRequests.delete(id);
+							clearTimeout(timeout);
+						};
+						this.sendHttpRequest<T>(request, postUrl)
+							.then((result) => {
+								settleSse();
+								resolve(result);
+							})
+							.catch((error) => {
+								settleSse();
+								reject(error);
+							});
 						break;
+					}
 
 					default:
 						throw new Error(`Unsupported transport: ${this.config.transport}`);

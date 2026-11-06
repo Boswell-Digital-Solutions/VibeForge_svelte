@@ -150,6 +150,8 @@
 			icon: '🔷'
 		}
 	};
+
+	const providers = Object.keys(providerInfo) as Provider[];
 </script>
 
 <!-- ======================================================================== -->
@@ -169,7 +171,7 @@
 	{/if}
 
 	<div class="providers-list">
-		{#each Object.keys(providerInfo) as provider}
+		{#each providers as provider}
 			<div class="provider-card">
 				<div class="provider-header">
 					<div class="provider-title">

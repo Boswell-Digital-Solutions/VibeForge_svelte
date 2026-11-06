@@ -30,6 +30,49 @@ describe('PerformanceDetector', () => {
 	// ============================================================================
 
 	describe('detectInefficientLoops', () => {
+		it('does not report an array mutation that is in no loop', () => {
+			// A single-line `.map()` opens no body. Before brace counting it raised
+			// the depth with nothing to lower it, so every later mutation in the
+			// file was reported as being inside a loop.
+			const code = [
+				"import { items } from './data';",
+				'',
+				'export const ids = items.map((i) => i.id);',
+				'',
+				'export function collect(a, b) {',
+				'  const out = [];',
+				'  out.push(a);',
+				'  out.push(b);',
+				'  return out;',
+				'}'
+			].join('\n');
+
+			const issues = detector.detectIssues(code, 'collect.ts', 'typescript');
+
+			expect(issues.filter((i) => i.title.includes('Array mutation'))).toHaveLength(0);
+		});
+
+		it('stops reporting after a callback body closes with });', () => {
+			const code = [
+				'function build(items) {',
+				'  const out = [];',
+				'  items.forEach((i) => {',
+				'    out.push(i);',
+				'  });',
+				'  out.push(1);',
+				'  return out;',
+				'}'
+			].join('\n');
+
+			const issues = detector
+				.detectIssues(code, 'build.ts', 'typescript')
+				.filter((i) => i.title.includes('Array mutation'));
+
+			// The mutation inside the callback is real; the one after `});` is not.
+			expect(issues).toHaveLength(1);
+			expect(issues[0].lineNumbers).toEqual([4]);
+		});
+
 		it('should detect nested for loops', () => {
 			const content = `
 for (let i = 0; i < n; i++) {

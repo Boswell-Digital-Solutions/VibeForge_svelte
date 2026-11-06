@@ -415,7 +415,7 @@ export class ModelRouter {
 	/**
 	 * Calculate cost based on token usage
 	 */
-	private calculateCost(
+	calculateCost(
 		model: string,
 		tokensUsed: { prompt: number; completion: number; total: number }
 	): number {

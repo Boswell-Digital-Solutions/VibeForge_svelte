@@ -139,7 +139,7 @@ if (typeof window !== 'undefined') {
 
   // Subscribe to context block updates from other tabs/devices
   wsSync.subscribe((update) => {
-    if (update.resourceType === 'context') {
+    if (update.resourceType === 'contextBlock') {
       handleRemoteContextUpdate(update);
     }
   });
@@ -176,6 +176,10 @@ function updateSyncMetadata(blockId: string, updates: Partial<ContextSyncMetadat
     errorMessage: updates.errorMessage ?? existing?.errorMessage ?? null,
   };
   state.syncMetadata.set(blockId, updated);
+}
+
+function getSyncMetadata(blockId: string): ContextSyncMetadata | undefined {
+  return state.syncMetadata.get(blockId);
 }
 
 function handleRemoteContextUpdate(update: any) {
@@ -393,8 +397,10 @@ async function loadHistory(workspaceId?: string, limit?: number) {
   state.error = null;
 
   try {
-    // Use sync manager to get blocks (handles offline fallback)
-    const blocks = await sync.listContexts(workspaceId);
+    // Use sync manager to get blocks (handles offline fallback).
+    // ContextBlock carries no workspace association yet, so the sync layer
+    // cannot filter by workspaceId; the parameter is accepted but inert here.
+    const blocks = await sync.listContexts();
 
     // Apply limit if specified
     const limitedBlocks = limit ? blocks.slice(0, limit) : blocks;
@@ -424,9 +430,11 @@ async function loadHistory(workspaceId?: string, limit?: number) {
  * Delete context block (optimistic update)
  */
 async function deleteBlock(id: string) {
+  // Captured before the try so the rollback in catch can still see it.
+  const blockToDelete = state.blocks.find(b => b.id === id);
+
   try {
     // Optimistically remove from UI
-    const blockToDelete = state.blocks.find(b => b.id === id);
     state.blocks = state.blocks.filter(b => b.id !== id);
     saveToStorage(state.blocks);
 
@@ -544,6 +552,7 @@ export const contextBlocksStore = {
   setError,
   getBlockById,
   reorderBlock,
+  getSyncMetadata,
 
   // CRUD with offline-first sync
   loadHistory,

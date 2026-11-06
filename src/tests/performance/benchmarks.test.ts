@@ -8,7 +8,8 @@ import { planningOrchestrator } from '$lib/workbench/planning/services/orchestra
 import { modelRouter } from '$lib/workbench/planning/services/modelRouter';
 import { contextBlocksStore } from '$lib/core/stores/contextBlocks.svelte';
 import { promptStore } from '$lib/core/stores/prompt.svelte';
-import type { PlanningSession, PipelineConfig } from '$lib/workbench/planning/types';
+import { createPlanningSession, getPipeline } from '$lib/workbench/planning/types';
+import type { PlanningSession } from '$lib/workbench/planning/types';
 
 /**
  * Performance threshold constants
@@ -30,11 +31,15 @@ describe('Performance Benchmarks', () => {
 			for (let i = 0; i < 100; i++) {
 				contextBlocksStore.addBlock({
 					id: `block-${i}`,
-					label: `Block ${i}`,
+					title: `Block ${i}`,
+					kind: 'project',
 					content: 'Test content',
-					type: 'text',
+					description: `Block ${i}`,
+					tags: [],
 					isActive: true,
-					order: i
+					source: 'workspace',
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString()
 				});
 			}
 
@@ -48,7 +53,7 @@ describe('Performance Benchmarks', () => {
 			const start = performance.now();
 
 			for (let i = 0; i < 1000; i++) {
-				promptStore.setPrompt(`Test prompt ${i}`);
+				promptStore.setText(`Test prompt ${i}`);
 			}
 
 			const duration = performance.now() - start;
@@ -62,15 +67,14 @@ describe('Performance Benchmarks', () => {
 			const sessions: PlanningSession[] = [];
 			for (let i = 0; i < 50; i++) {
 				sessions.push({
+					...createPlanningSession(
+						`Session ${i}`,
+						'Test description',
+						'feature',
+						'default'
+					),
 					id: `session-${i}`,
-					status: 'completed',
-					title: `Session ${i}`,
-					description: 'Test description',
-					requestType: 'feature',
-					pipelineType: 'default',
-					stages: [],
-					startedAt: new Date(),
-					completedAt: new Date()
+					status: 'completed'
 				});
 			}
 
@@ -102,38 +106,21 @@ describe('Performance Benchmarks', () => {
 
 	describe('Planning Orchestrator Performance', () => {
 		it('should create planning session quickly', () => {
-			const config: PipelineConfig = {
-				id: 'default',
-				name: 'Default',
-				stages: [
-					{
-						type: 'initial',
-						model: 'gpt-4-turbo',
-						provider: 'openai',
-						prompt: 'Create plan',
-						systemPrompt: 'You are a planner',
-						maxTokens: 2000,
-						temperature: 0.7
-					}
-				],
-				estimatedDuration: 300,
-				estimatedCost: 0.5
-			};
-
 			const start = performance.now();
 
-			const session = planningOrchestrator.createSession({
-				title: 'Test Feature',
-				description: 'Test description',
-				requestType: 'feature',
-				pipeline: config
-			});
+			const session = createPlanningSession(
+				'Test Feature',
+				'Test description',
+				'feature',
+				'default'
+			);
 
 			const duration = performance.now() - start;
 
 			expect(duration).toBeLessThan(PERF_THRESHOLDS.sessionCreation);
 			expect(session).toBeDefined();
-			expect(session.stages).toHaveLength(1);
+			// Stages come from the pipeline definition, so compare against it.
+			expect(session.stages).toHaveLength(getPipeline('default').stages.length);
 
 			console.log(`✓ Session creation: ${duration.toFixed(2)}ms`);
 		});
@@ -143,11 +130,15 @@ describe('Performance Benchmarks', () => {
 			for (let i = 0; i < 10; i++) {
 				contextBlocksStore.addBlock({
 					id: `block-${i}`,
-					label: `Block ${i}`,
+					title: `Block ${i}`,
+					kind: 'project',
 					content: `Content ${i}`.repeat(100), // ~1KB per block
-					type: 'text',
+					description: `Block ${i}`,
+					tags: [],
 					isActive: true,
-					order: i
+					source: 'workspace',
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString()
 				});
 			}
 
@@ -205,17 +196,22 @@ describe('Performance Benchmarks', () => {
 		});
 
 		it('should estimate costs quickly', () => {
+			// Keys of MODEL_PRICING; short aliases match nothing and cost 0.
 			const models = [
-				'claude-3.5-sonnet',
-				'gpt-4-turbo',
-				'grok-beta',
-				'gemini-1.5-pro'
+				'claude-3-5-sonnet-20241022',
+				'claude-3-5-haiku-20241022',
+				'gpt-4-turbo-2024-04-09',
+				'gpt-4'
 			];
 
 			const start = performance.now();
 
 			for (const model of models) {
-				const cost = modelRouter.estimateCost(model, 1000, 2000);
+				const cost = modelRouter.calculateCost(model, {
+					prompt: 1000,
+					completion: 2000,
+					total: 3000
+				});
 				expect(cost).toBeGreaterThan(0);
 			}
 
@@ -253,30 +249,23 @@ describe('Performance Benchmarks', () => {
 			// Create 100 sessions with substantial data
 			const sessions: PlanningSession[] = [];
 			for (let i = 0; i < 100; i++) {
+				const session = createPlanningSession(
+					`Feature ${i}`,
+					'Test description '.repeat(50),
+					'feature',
+					'default'
+				);
 				sessions.push({
+					...session,
 					id: `session-${i}`,
 					status: 'completed',
-					title: `Feature ${i}`,
-					description: 'Test description '.repeat(50), // ~1KB
-					requestType: 'feature',
-					pipelineType: 'default',
-					stages: Array.from({ length: 4 }, (_, j) => ({
-						id: `stage-${j}`,
-						index: j,
-						type: 'initial' as const,
-						model: 'gpt-4-turbo',
-						provider: 'openai' as const,
+					// Substantial per-stage payloads: that is what this measures.
+					stages: session.stages.map((stage) => ({
+						...stage,
 						status: 'completed' as const,
-						input: 'Input text '.repeat(100), // ~1KB
-						output: 'Output text '.repeat(200), // ~2KB
-						startedAt: new Date(),
-						completedAt: new Date(),
-						tokensUsed: 1000,
-						cost: 0.05,
-						duration: 5000
-					})),
-					startedAt: new Date(),
-					completedAt: new Date()
+						input: 'Input text '.repeat(100),
+						output: 'Output text '.repeat(200)
+					}))
 				});
 			}
 
@@ -297,7 +286,7 @@ describe('Performance Benchmarks', () => {
 
 			// Perform 1000 rapid store updates
 			for (let i = 0; i < 1000; i++) {
-				promptStore.setPrompt(`Prompt ${i}`);
+				promptStore.setText(`Prompt ${i}`);
 				// Simulate some work
 				const temp = Array.from({ length: 100 }, (_, j) => j);
 			}

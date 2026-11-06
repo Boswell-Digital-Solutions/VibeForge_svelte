@@ -5,52 +5,110 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { McpClient } from '$lib/core/mcp/client';
-import { McpConnectionManager } from '$lib/core/mcp/manager';
-import type { McpServerConfig } from '$lib/core/mcp/types';
+import { McpClientManager } from '$lib/core/mcp/manager';
+import type { McpClientConfig } from '$lib/core/mcp/types';
+
+const SERVER_INFO = {
+	protocolVersion: '1.0',
+	serverInfo: { name: 'Test Server', version: '1.0.0' }
+};
+
+const TOOLS = {
+	queryKB: {
+		name: 'queryKB',
+		description: 'Query knowledge base',
+		inputSchema: { type: 'object', properties: { query: { type: 'string' } } }
+	},
+	ingestDocument: {
+		name: 'ingestDocument',
+		description: 'Ingest document',
+		inputSchema: { type: 'object', properties: { content: { type: 'string' } } }
+	}
+};
+
+/**
+ * Answer by JSON-RPC method rather than by call order.
+ *
+ * connect() issues both `initialize` and `tools/list`, so an ordered chain of
+ * mockResolvedValueOnce is spent on the handshake and every later request reads
+ * undefined. A value of Error rejects; `httpError` answers with a failed
+ * response instead.
+ */
+function mockRpc(
+	results: Record<string, unknown>,
+	options: { httpError?: { status: number; body: unknown } } = {}
+) {
+	return vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+		const body = JSON.parse(String(init?.body ?? '{}')) as {
+			id?: number;
+			method?: string;
+		};
+		const method = body.method ?? '';
+
+		if (options.httpError && !(method in results)) {
+			return {
+				ok: false,
+				status: options.httpError.status,
+				json: async () => options.httpError!.body
+			} as Response;
+		}
+
+		if (!(method in results)) {
+			throw new Error(`Unexpected JSON-RPC method: ${method}`);
+		}
+
+		const value = results[method];
+		if (value instanceof Error) {
+			throw value;
+		}
+
+		return {
+			ok: true,
+			status: 200,
+			json: async () => ({ jsonrpc: '2.0', id: body.id, result: value })
+		} as Response;
+	});
+}
+
+function clientConfig(overrides: Partial<McpClientConfig> = {}): McpClientConfig {
+	return {
+		serverName: 'Test Server',
+		transport: 'http',
+		url: 'http://localhost:8001',
+		autoReconnect: false,
+		...overrides
+	};
+}
+
+/** The handshake: initialize, then the tool list connect() fetches. */
+function handshake(tools: unknown[] = [TOOLS.queryKB, TOOLS.ingestDocument]) {
+	return { initialize: SERVER_INFO, 'tools/list': { tools } };
+}
 
 describe('MCP Client Integration', () => {
 	let client: McpClient;
 
 	beforeEach(() => {
-		const config: McpServerConfig = {
-			id: 'test-server',
-			name: 'Test Server',
-			transport: 'http',
-			url: 'http://localhost:8001'
-		};
-		client = new McpClient(config);
+		client = new McpClient(clientConfig());
 	});
 
 	afterEach(async () => {
 		await client.disconnect();
+		vi.restoreAllMocks();
 	});
 
 	describe('Connection Management', () => {
 		it('should connect to server successfully', async () => {
-			// Mock successful connection
-			global.fetch = vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({
-					jsonrpc: '2.0',
-					id: 1,
-					result: {
-						protocolVersion: '1.0',
-						serverInfo: {
-							name: 'Test Server',
-							version: '1.0.0'
-						}
-					}
-				})
-			});
+			global.fetch = mockRpc(handshake());
 
 			await client.connect();
 
 			expect(client.isConnected()).toBe(true);
 			expect(client.getStatus()).toBe('connected');
+			expect(client.getServerInfo()).toEqual(SERVER_INFO.serverInfo);
 		});
 
 		it('should handle connection failure gracefully', async () => {
-			// Mock connection failure
 			global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
 
 			await expect(client.connect()).rejects.toThrow();
@@ -59,297 +117,143 @@ describe('MCP Client Integration', () => {
 		});
 
 		it('should reconnect after disconnect', async () => {
-			// Mock successful connection
-			global.fetch = vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({
-					jsonrpc: '2.0',
-					id: 1,
-					result: {
-						protocolVersion: '1.0',
-						serverInfo: { name: 'Test Server', version: '1.0.0' }
-					}
-				})
-			});
+			global.fetch = mockRpc(handshake());
 
 			await client.connect();
 			expect(client.isConnected()).toBe(true);
 
 			await client.disconnect();
 			expect(client.isConnected()).toBe(false);
+			expect(client.getStatus()).toBe('disconnected');
 
 			await client.connect();
 			expect(client.isConnected()).toBe(true);
 		});
 
 		it('should emit connection events', async () => {
-			const connectHandler = vi.fn();
-			const disconnectHandler = vi.fn();
+			global.fetch = mockRpc(handshake());
 
-			client.on('connected', connectHandler);
-			client.on('disconnected', disconnectHandler);
-
-			// Mock successful connection
-			global.fetch = vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({
-					jsonrpc: '2.0',
-					id: 1,
-					result: {
-						protocolVersion: '1.0',
-						serverInfo: { name: 'Test Server', version: '1.0.0' }
-					}
-				})
-			});
+			const connected = vi.fn();
+			const toolsUpdated = vi.fn();
+			client.on('connected', connected);
+			client.on('tool-list-updated', toolsUpdated);
 
 			await client.connect();
-			expect(connectHandler).toHaveBeenCalled();
 
-			await client.disconnect();
-			expect(disconnectHandler).toHaveBeenCalled();
+			expect(connected).toHaveBeenCalled();
+			expect(toolsUpdated).toHaveBeenCalled();
 		});
 	});
 
 	describe('Tool Discovery', () => {
 		it('should list available tools', async () => {
-			// Mock successful connection and tool list
-			global.fetch = vi
-				.fn()
-				.mockResolvedValueOnce({
-					// Initialize
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 1,
-						result: {
-							protocolVersion: '1.0',
-							serverInfo: { name: 'Test Server', version: '1.0.0' }
-						}
-					})
-				})
-				.mockResolvedValueOnce({
-					// List tools
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 2,
-						result: {
-							tools: [
-								{
-									name: 'queryKB',
-									description: 'Query knowledge base',
-									inputSchema: {
-										type: 'object',
-										properties: {
-											query: { type: 'string' }
-										}
-									}
-								},
-								{
-									name: 'ingestDocument',
-									description: 'Ingest document',
-									inputSchema: {
-										type: 'object',
-										properties: {
-											content: { type: 'string' }
-										}
-									}
-								}
-							]
-						}
-					})
-				});
+			global.fetch = mockRpc(handshake());
 
 			await client.connect();
-			const tools = await client.listTools();
+			const result = await client.listTools();
 
-			expect(tools).toHaveLength(2);
-			expect(tools[0].name).toBe('queryKB');
-			expect(tools[1].name).toBe('ingestDocument');
+			// listTools resolves McpToolsListResult, not a bare array.
+			expect(result.tools).toHaveLength(2);
+			expect(result.tools[0].name).toBe('queryKB');
+			expect(result.tools[1].name).toBe('ingestDocument');
 		});
 
 		it('should handle empty tool list', async () => {
-			global.fetch = vi
-				.fn()
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 1,
-						result: {
-							protocolVersion: '1.0',
-							serverInfo: { name: 'Test Server', version: '1.0.0' }
-						}
-					})
-				})
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 2,
-						result: { tools: [] }
-					})
-				});
+			global.fetch = mockRpc(handshake([]));
 
 			await client.connect();
-			const tools = await client.listTools();
+			const result = await client.listTools();
 
-			expect(tools).toHaveLength(0);
+			expect(result.tools).toHaveLength(0);
+		});
+
+		it('should cache the tool list from the handshake', async () => {
+			global.fetch = mockRpc(handshake());
+
+			await client.connect();
+
+			expect(client.getTools()).toHaveLength(2);
 		});
 	});
 
 	describe('Tool Invocation', () => {
 		it('should invoke tool successfully', async () => {
-			global.fetch = vi
-				.fn()
-				.mockResolvedValueOnce({
-					// Initialize
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 1,
-						result: {
-							protocolVersion: '1.0',
-							serverInfo: { name: 'Test Server', version: '1.0.0' }
-						}
-					})
-				})
-				.mockResolvedValueOnce({
-					// Invoke tool
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 2,
-						result: {
-							content: 'Query result: 5 documents found'
-						}
-					})
-				});
+			global.fetch = mockRpc({
+				...handshake(),
+				'tools/call': {
+					content: [{ type: 'text', text: 'Query result: 5 documents found' }]
+				}
+			});
 
 			await client.connect();
 			const result = await client.callTool('queryKB', { query: 'test query' });
 
-			expect(result.content).toContain('5 documents found');
+			expect(result.content[0].text).toContain('5 documents found');
 		});
 
 		it('should handle tool invocation errors', async () => {
-			global.fetch = vi
-				.fn()
-				.mockResolvedValueOnce({
-					// Initialize
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 1,
-						result: {
-							protocolVersion: '1.0',
-							serverInfo: { name: 'Test Server', version: '1.0.0' }
-						}
-					})
-				})
-				.mockResolvedValueOnce({
-					// Invoke tool with error
-					ok: false,
+			global.fetch = mockRpc(handshake(), {
+				httpError: {
 					status: 400,
-					json: async () => ({
+					body: {
 						jsonrpc: '2.0',
 						id: 2,
-						error: {
-							code: -32602,
-							message: 'Invalid params'
-						}
-					})
-				});
+						error: { code: -32602, message: 'Invalid params' }
+					}
+				}
+			});
 
 			await client.connect();
 
 			await expect(client.callTool('queryKB', { invalid: 'params' })).rejects.toThrow();
 		});
 
+		it('should refuse to call a tool while disconnected', async () => {
+			await expect(client.callTool('queryKB', {})).rejects.toThrow(/Not connected/i);
+		});
+
 		it('should timeout long-running tool calls', async () => {
-			global.fetch = vi
-				.fn()
-				.mockResolvedValueOnce({
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 1,
-						result: {
-							protocolVersion: '1.0',
-							serverInfo: { name: 'Test Server', version: '1.0.0' }
-						}
-					})
-				})
-				.mockImplementationOnce(
-					() =>
-						new Promise((resolve) =>
-							setTimeout(
-								() =>
-									resolve({
-										ok: true,
-										json: async () => ({ jsonrpc: '2.0', id: 2, result: {} })
-									}),
-								35000
-							)
-						)
-				);
+			const slowClient = new McpClient(clientConfig({ timeout: 50 }));
+			const handshakeMock = mockRpc(handshake());
 
-			await client.connect();
+			global.fetch = vi.fn(async (url, init) => {
+				const body = JSON.parse(String((init as RequestInit)?.body ?? '{}'));
+				if (body.method === 'tools/call') {
+					// Never answers, so the client's own timeout has to fire.
+					return new Promise<Response>(() => {});
+				}
+				return handshakeMock(url as string, init as RequestInit);
+			}) as unknown as typeof fetch;
 
-			// Should timeout after 30 seconds (default timeout)
-			await expect(
-				client.callTool('slowTool', {}, { timeout: 1000 })
-			).rejects.toThrow(/timeout/i);
-		}, 10000);
+			await slowClient.connect();
+
+			await expect(slowClient.callTool('slowTool', {})).rejects.toThrow(/timeout/i);
+
+			await slowClient.disconnect();
+		});
 	});
 
 	describe('Error Recovery', () => {
-		it('should retry failed requests', async () => {
-			let attempts = 0;
-			global.fetch = vi.fn().mockImplementation(async () => {
-				attempts++;
-				if (attempts < 3) {
-					throw new Error('Network error');
-				}
-				return {
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 1,
-						result: {
-							protocolVersion: '1.0',
-							serverInfo: { name: 'Test Server', version: '1.0.0' }
-						}
-					})
-				};
-			});
+		it('should not retry a failed handshake inside connect()', async () => {
+			const fetchMock = vi.fn().mockRejectedValue(new Error('Network error'));
+			global.fetch = fetchMock;
 
-			await client.connect();
+			await expect(client.connect()).rejects.toThrow();
 
-			expect(attempts).toBe(3); // Initial attempt + 2 retries
-			expect(client.isConnected()).toBe(true);
+			// The client schedules an autoReconnect timer instead of retrying the
+			// request in place, so connect() makes exactly one attempt.
+			expect(fetchMock).toHaveBeenCalledTimes(1);
 		});
 
 		it('should handle server disconnection', async () => {
+			global.fetch = mockRpc(handshake());
+
 			const disconnectHandler = vi.fn();
 			client.on('disconnected', disconnectHandler);
-
-			global.fetch = vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({
-					jsonrpc: '2.0',
-					id: 1,
-					result: {
-						protocolVersion: '1.0',
-						serverInfo: { name: 'Test Server', version: '1.0.0' }
-					}
-				})
-			});
 
 			await client.connect();
 			expect(client.isConnected()).toBe(true);
 
-			// Simulate server disconnection
 			await client.disconnect();
 
 			expect(disconnectHandler).toHaveBeenCalled();
@@ -359,210 +263,105 @@ describe('MCP Client Integration', () => {
 });
 
 describe('MCP Connection Manager Integration', () => {
-	let manager: McpConnectionManager;
+	let manager: McpClientManager;
 
 	beforeEach(() => {
-		manager = new McpConnectionManager();
+		manager = new McpClientManager();
 	});
 
 	afterEach(async () => {
 		await manager.disconnectAll();
+		vi.restoreAllMocks();
 	});
+
+	/** Register and connect in one step; the manager separates the two. */
+	async function addServer(id: string, name: string, url: string) {
+		manager.registerServer({
+			id,
+			name,
+			description: `${name} test server`,
+			config: clientConfig({ serverName: name, url })
+		});
+		await manager.connectServer(id);
+	}
 
 	describe('Multi-Server Management', () => {
 		it('should connect to multiple servers', async () => {
-			// Mock successful connections
-			global.fetch = vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({
-					jsonrpc: '2.0',
-					id: 1,
-					result: {
-						protocolVersion: '1.0',
-						serverInfo: { name: 'Test Server', version: '1.0.0' }
-					}
-				})
-			});
+			global.fetch = mockRpc(handshake());
 
-			await manager.connect({
-				id: 'dataforge',
-				name: 'DataForge',
-				transport: 'http',
-				url: 'http://localhost:8001'
-			});
+			await addServer('dataforge', 'DataForge', 'http://localhost:8001');
+			await addServer('neuroforge', 'NeuroForge', 'http://localhost:8000');
 
-			await manager.connect({
-				id: 'neuroforge',
-				name: 'NeuroForge',
-				transport: 'http',
-				url: 'http://localhost:8000'
-			});
-
-			const servers = manager.getConnectedServers();
-			expect(servers).toHaveLength(2);
+			// listServers() reports only connected servers by default.
+			expect(manager.listServers()).toHaveLength(2);
 		});
 
 		it('should list all tools from all servers', async () => {
-			global.fetch = vi
-				.fn()
-				.mockResolvedValueOnce({
-					// Server 1 init
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 1,
-						result: {
-							protocolVersion: '1.0',
-							serverInfo: { name: 'Server 1', version: '1.0.0' }
-						}
-					})
-				})
-				.mockResolvedValueOnce({
-					// Server 1 tools
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 2,
-						result: {
-							tools: [{ name: 'tool1', description: 'Tool 1', inputSchema: {} }]
-						}
-					})
-				})
-				.mockResolvedValueOnce({
-					// Server 2 init
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 3,
-						result: {
-							protocolVersion: '1.0',
-							serverInfo: { name: 'Server 2', version: '1.0.0' }
-						}
-					})
-				})
-				.mockResolvedValueOnce({
-					// Server 2 tools
-					ok: true,
-					json: async () => ({
-						jsonrpc: '2.0',
-						id: 4,
-						result: {
-							tools: [{ name: 'tool2', description: 'Tool 2', inputSchema: {} }]
-						}
-					})
-				});
+			global.fetch = mockRpc(handshake([TOOLS.queryKB]));
 
-			await manager.connect({
-				id: 'server1',
-				name: 'Server 1',
-				transport: 'http',
-				url: 'http://localhost:8001'
-			});
+			await addServer('server1', 'Server 1', 'http://localhost:8001');
+			await addServer('server2', 'Server 2', 'http://localhost:8002');
 
-			await manager.connect({
-				id: 'server2',
-				name: 'Server 2',
-				transport: 'http',
-				url: 'http://localhost:8002'
-			});
-
-			const allTools = await manager.getAllTools();
+			// getAllTools() is synchronous and groups tools per server.
+			const allTools = manager.getAllTools();
 
 			expect(allTools).toHaveLength(2);
-			expect(allTools[0].name).toBe('tool1');
-			expect(allTools[1].name).toBe('tool2');
+			expect(allTools.map((entry) => entry.serverId).sort()).toEqual([
+				'server1',
+				'server2'
+			]);
+			expect(allTools[0].tools[0].name).toBe('queryKB');
 		});
 
 		it('should disconnect from specific server', async () => {
-			global.fetch = vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({
-					jsonrpc: '2.0',
-					id: 1,
-					result: {
-						protocolVersion: '1.0',
-						serverInfo: { name: 'Test Server', version: '1.0.0' }
-					}
-				})
-			});
+			global.fetch = mockRpc(handshake());
 
-			await manager.connect({
-				id: 'server1',
-				name: 'Server 1',
-				transport: 'http',
-				url: 'http://localhost:8001'
-			});
+			await addServer('server1', 'Server 1', 'http://localhost:8001');
+			await addServer('server2', 'Server 2', 'http://localhost:8002');
+			expect(manager.listServers()).toHaveLength(2);
 
-			await manager.connect({
-				id: 'server2',
-				name: 'Server 2',
-				transport: 'http',
-				url: 'http://localhost:8002'
-			});
+			await manager.disconnectServer('server1');
 
-			expect(manager.getConnectedServers()).toHaveLength(2);
+			const connected = manager.listServers();
+			expect(connected).toHaveLength(1);
+			expect(connected[0].id).toBe('server2');
+			// The manager pre-registers default servers, so assert on this one.
+			const all = manager.listServers({ includeDisconnected: true });
+			expect(all.find((entry) => entry.id === 'server1')?.status).toBe(
+				'disconnected'
+			);
+		});
 
-			await manager.disconnect('server1');
-
-			expect(manager.getConnectedServers()).toHaveLength(1);
-			expect(manager.getClient('server1')).toBeUndefined();
-			expect(manager.getClient('server2')).toBeDefined();
+		it('should refuse to connect an unregistered server', async () => {
+			await expect(manager.connectServer('missing')).rejects.toThrow(/not found/i);
 		});
 	});
 
 	describe('Event Handling', () => {
 		it('should emit server connected event', async () => {
-			const handler = vi.fn();
-			manager.on('server-connected', handler);
+			global.fetch = mockRpc(handshake());
 
-			global.fetch = vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({
-					jsonrpc: '2.0',
-					id: 1,
-					result: {
-						protocolVersion: '1.0',
-						serverInfo: { name: 'Test Server', version: '1.0.0' }
-					}
-				})
-			});
+			const onChange = vi.fn();
+			manager.onChange(onChange);
 
-			await manager.connect({
-				id: 'test',
-				name: 'Test Server',
-				transport: 'http',
-				url: 'http://localhost:8001'
-			});
+			await addServer('server1', 'Server 1', 'http://localhost:8001');
 
-			expect(handler).toHaveBeenCalledWith('test');
+			expect(onChange).toHaveBeenCalled();
+			expect(manager.getServer('server1')?.status).toBe('connected');
 		});
 
 		it('should emit server disconnected event', async () => {
-			const handler = vi.fn();
-			manager.on('server-disconnected', handler);
+			global.fetch = mockRpc(handshake());
 
-			global.fetch = vi.fn().mockResolvedValue({
-				ok: true,
-				json: async () => ({
-					jsonrpc: '2.0',
-					id: 1,
-					result: {
-						protocolVersion: '1.0',
-						serverInfo: { name: 'Test Server', version: '1.0.0' }
-					}
-				})
-			});
+			await addServer('server1', 'Server 1', 'http://localhost:8001');
 
-			await manager.connect({
-				id: 'test',
-				name: 'Test Server',
-				transport: 'http',
-				url: 'http://localhost:8001'
-			});
+			const onChange = vi.fn();
+			manager.onChange(onChange);
 
-			await manager.disconnect('test');
+			await manager.disconnectServer('server1');
 
-			expect(handler).toHaveBeenCalledWith('test');
+			expect(onChange).toHaveBeenCalled();
+			expect(manager.getServer('server1')?.status).toBe('disconnected');
 		});
 	});
 });

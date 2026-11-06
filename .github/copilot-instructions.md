@@ -3,9 +3,9 @@
 ## Architecture Overview
 
 **VibeForge** is a professional prompt workbench (not a chat UI) built with SvelteKit + Vite + Tailwind. It implements a **3-column layout** philosophy:
-- **Context Column** (`ContextColumn.svelte`): Library of reusable prompt blocks (system, design, project, code, workflow kinds)
-- **Prompt Column** (`PromptColumn.svelte`): Primary text editor with active context chips and token estimation
-- **Output Column** (`OutputColumn.svelte`): Model responses and run history
+- **Context Column** (`$lib/workbench/context/ContextColumn.svelte`): Library of reusable prompt blocks (system, design, project, code, workflow kinds)
+- **Prompt Column** (`$lib/workbench/prompt/PromptColumn.svelte`): Primary text editor with active context chips and token estimation
+- **Output Column** (`$lib/workbench/output/OutputColumn.svelte`): Model responses and run history
 
 The design emphasizes **low cognitive load** and professional workflows. Core motivation: AI coding agents need structured context + clear prompts + execution history.
 
@@ -28,10 +28,14 @@ pnpm check:watch  # Watch mode validation
 
 **Project Structure:**
 - `src/routes/` — SvelteKit pages (standard file-based routing)
-- `src/lib/components/` — Reusable UI components
-- `src/lib/stores/` — Svelte stores (theme, prompt, context, run state)
-- `src/lib/types/` — TypeScript interfaces (ContextBlock, ModelRun, etc.)
+- `src/lib/ui/layout/` — app shell: `TopBar`, `LeftRailNav`, `StatusBar`, `WorkbenchShell`
+- `src/lib/workbench/` — the 3-column workbench, wizard and planning
+- `src/lib/components/` — feature UI, grouped by domain
+- `src/lib/core/` — stores, API clients, domain types, sync, MCP, execution
+- `src/lib/stores/` — feature-local stores (see State Management below)
+- `src/lib/core/types/` — domain interfaces (`ContextBlock`, runs, workspaces)
 - `src/app.css` — Tailwind + Forge design tokens (see below)
+- `src/archive/` — retired code, outside the route tree; excluded from `svelte-check`
 
 ## Design System: "Forge" Palette
 
@@ -57,53 +61,66 @@ VibeForge uses a **dark-by-default** theme inspired by forged steel and embers. 
 **Functional Colors:**
 - `forge-info: #3B82F6`, `forge-danger: #EF4444`, `forge-success: #22C55E`
 
-**Pattern:** All color-aware components check `$theme` store and apply conditional Tailwind classes for light/dark support (see `ForgeSideNav.svelte`, `PromptColumn.svelte` for examples).
+**Pattern:** All color-aware components read `themeStore.current` and apply conditional Tailwind classes for light/dark support (see `LeftRailNav.svelte`, `PromptColumn.svelte` for examples).
 
-## State Management: Svelte Stores
+## State Management: two layers, two idioms
 
-Stores live in `src/lib/stores/` and follow a **custom store factory** pattern with methods:
+State lives in two places with different conventions. The `.svelte.ts` suffix
+is the reliable signal: it means Svelte 5 runes.
 
-**`themeStore.ts`:**
-- Singleton store: `export const theme` (`'dark' | 'light'`)
-- Methods: `toggle()`, `setTheme(theme)`
-- Persists to `localStorage` with key `'vibeforge-theme'`
-- Applies `data-theme` attribute to `document.documentElement` on every change
+### `src/lib/core/stores/` — runes (primary)
 
-**`promptStore.ts`:**
-- `promptState` (writable): `{ text: string; lastUpdated: string }`
-- Methods: `setText(text)`, `reset()`
-- `estimatedTokens` (derived): Rough token count (~4 chars = 1 token)
+Each module keeps a module-level `$state` object, derives with `$derived`, and
+exports one object whose getters expose state and whose other properties are
+plain action functions. **There is no `subscribe` and no `$` prefix.** Read a
+value as `themeStore.current`; call an action as `themeStore.toggle()`.
 
-**`contextStore.ts`:**
-- `contextState` (writable): Array of `ContextBlock` items (see `types/context.ts`)
-- `activeContexts` (derived): Filtered to `isActive === true`
-- Methods: `toggleActive(id)`, `addContext(block)`, `removeContext(id)`, `updateContext(id, partial)`
-- Example contexts pre-populate on init (system rules, design, AuthorForge project, code review patterns)
+Re-exported from `$lib/core/stores`:
 
-**`runStore.ts`:**
-- `runState` (writable): `{ runs: ModelRun[]; activeRunId: string | null }`
-- Derived: `runs` (array), `activeRun` (single or null)
-- Methods: `addRun(run)`, `setActiveRun(id)`, `reset()`
+- `workspaceStore` — workspaces, current selection, settings, sync status
+- `contextBlocksStore` — context blocks, `activeBlocks`, `totalActiveTokens`;
+  actions `addBlock`, `updateBlock`, `removeBlock`, `toggleActive`, `reorderBlock`
+- `promptStore` — `text`, `variables`, `currentTemplate`, `estimatedTokens`,
+  `resolvedPrompt`; actions `setText`, `appendText`, `setVariable`, `loadTemplate`
+- `modelsStore` — `models`, `selectedModels`, `estimatedCost`; actions
+  `selectModel`, `toggleModel`, `selectOnly`
+- `runsStore` — `runs`, `activeRun`, `totalTokensUsed`, `totalCost`; actions
+  `execute`, `executeFromStores`, `addRun`, `startExecution`, `completeExecution`
+- `toolsStore` — MCP servers, tools and invocations
+- `themeStore` — `current`, `isDark`, `isLight`; actions `toggle`, `setTheme`
+- `licenseStore` — tier, trial state, `checkFeature`, quota
+- `patternsStore` — pattern library, suggestions, collections, stats
+- `marketplaceStore` — marketplace state; currently has no consumer
 
-**`presetsStore.ts`:**
-- `Preset` interface: id, name, description, category ('coding'|'writing'|'analysis'|'evaluation'|'other'), workspace, tags, basePrompt, contextRefs, models, pinned, updatedAt
-- Derived stores: `pinnedPresets` (filtered `pinned === true`), `allPresets`, `presets` (all)
-- Methods: `togglePinned(id)`, `addPreset(preset)`, `removePreset(id)`, `updatePreset(id, partial)`
-- Enables preset library UI and applies presets to workbench/quick-run prompts
+### `src/lib/stores/` — feature-local, mixed
 
-**`accessibilityStore.ts`:**
-- `AccessibilityState`: `{ fontSize: 'small'|'medium'|'large'|'x-large' }`
-- Methods: `setFontSize(size)`, `reset()`
-- Persists to `localStorage` with key `'forge-accessibility'`, applies `font-size` CSS to `document.root`
+Classic `svelte/store` writables, consumed **with** the `$` prefix:
+`estimation.ts`, `palette.ts`, `patternComparison.ts`, `presets.ts`,
+`versions.ts`.
 
-**Pattern:** All stores use `browser` check (`import { browser } from '$app/environment'`) before accessing `localStorage` or DOM, ensuring SSR-safe hydration.
+Runes modules, consumed **without** it: `projectOutcomes.svelte.ts`,
+`refactoringStore.svelte.ts`, `teamStore.svelte.ts`, `toast.svelte.ts`,
+`trendData.svelte.ts`.
+
+**Pattern:** guard every `localStorage` and DOM access with
+`import { browser } from '$app/environment'`. Routes are prerendered at build
+time, where neither exists. `themeStore` persists under `vibeforge-theme` and
+mirrors the value onto `document.documentElement` as `data-theme`.
+`workspaceStore`, `contextBlocksStore` and `runsStore` also expose
+`syncStatus`, `isOnline`, `hasPendingChanges`, `hasConflicts` and the actions
+`forceSyncAll` / `syncPendingChanges`, backed by `src/lib/core/sync/`.
+
 
 ## Component Patterns
 
 ### Theme-Aware Styling
-Every visual component conditionally applies Tailwind classes based on `$theme`:
+Every visual component conditionally applies Tailwind classes based on `themeStore.current`:
 ```svelte
-<div class={`px-4 py-3 ${$theme === 'dark' ? 'bg-slate-900' : 'bg-white'}`}>
+<script lang="ts">
+  import { themeStore } from '$lib/core/stores';
+</script>
+
+<div class={`px-4 py-3 ${themeStore.current === 'dark' ? 'bg-slate-900' : 'bg-white'}`}>
 ```
 Light theme uses `slate-` colors; dark uses `forge-` colors or `slate-` variants.
 
@@ -114,8 +131,8 @@ Light theme uses `slate-` colors; dark uses `forge-` colors or `slate-` variants
 
 ### Multi-Column Layout
 - `WorkbenchShell.svelte` — Flex column container that wraps page content
-- `+layout.svelte` — Root layout orchestrates theme provider + top bar + side nav + workbench
-- `ForgeSideNav.svelte` — Fixed 224px (`w-56`) navigation with emojis, routing via `$page.url.pathname`
+- `+layout.svelte` — Root layout orchestrates `TopBar` + `LeftRailNav` + `StatusBar` + page content
+- `LeftRailNav.svelte` — Navigation rail, active route via `$page.url.pathname` from `$app/stores`
 
 ### Detail Panels
 - `ContextDetailPanel.svelte`, `HistoryDetailPanel.svelte`, `PatternDetailPanel.svelte` follow the same structure:
@@ -126,25 +143,30 @@ Light theme uses `slate-` colors; dark uses `forge-` colors or `slate-` variants
 
 ## Type System
 
-**Key Types (in `src/lib/types/`):**
+**Domain types live in `src/lib/core/types/` (barrel: `$lib/core/types`);
+feature-local types in `src/lib/types/`.**
 
-`context.ts`:
+`core/types/domain.ts`:
 ```typescript
-export type ContextKind = 'system' | 'design' | 'project' | 'code' | 'workflow';
+export type ContextKind =
+  | 'system' | 'design' | 'project' | 'code' | 'workflow' | 'data';
 export type ContextSource = 'global' | 'workspace' | 'local';
 export interface ContextBlock {
   id: string;
   title: string;
   kind: ContextKind;
+  content: string;
   description: string;
   tags: string[];
   isActive: boolean;
-  lastUpdated: string; // ISO date string
   source: ContextSource;
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+  metadata?: Record<string, unknown>;
 }
 ```
 
-`workspace.ts`:
+`types/workspace.ts`:
 ```typescript
 export interface WorkspaceSettings {
   defaultEvaluationScale: "1-5" | "1-10";
@@ -162,11 +184,14 @@ export interface Workspace {
   models: string[];
   tags: string[];
   settings: WorkspaceSettings;
-  stats: { totalRuns: number; lastRunAt?: string };
+  stats: WorkspaceStats; // { totalRuns: number; lastRunAt?: string }
 }
 ```
 
-`evaluation.ts` and `run.ts`: Define ModelRun, Evaluation interfaces with id, model, timestamp, output, scores, etc.
+`types/evaluation.ts` defines the Evaluation interfaces. Run and model types
+live in `core/types/domain.ts`; `types/run.ts` and `types/context.ts` no
+longer exist. Other feature-local types: `outcome.ts`,
+`success-prediction.ts`, `team.ts`.
 
 **Pattern:** Use discriminated unions for status/kind fields; always include ISO timestamps for sort/filter.
 
@@ -174,20 +199,40 @@ export interface Workspace {
 
 SvelteKit file-based routing (each is a `+page.svelte` in its own directory):
 - `/` — Main workbench (3-column: ContextColumn + PromptColumn + OutputColumn)
-- `/quick-run` — Lightweight single-column prompt runner for rapid experimentation (fast model comparison, tactical prompts)
 - `/contexts` — Context library browser and management
-- `/history` — Run history, replay, and comparison metrics
 - `/patterns` — Prompt patterns / recipes library
-- `/presets` — Saved workbench configurations (context refs + model selections + base prompts)
+- `/history` — Run history, replay, and comparison metrics
 - `/evals` — Evaluations dashboard and model comparison
-- `/settings` — User preferences (appearance, fonts, models, workspace defaults, data policies)
+- `/analytics` — Cost and usage analytics
 - `/workspaces` — Multi-workspace management with stats and quick switching
+- `/dashboard` — Project dashboard
+- `/teams` — Team dashboard
+- `/refactoring` — Automated refactoring
+- `/settings` — User preferences
+- `/login` — Sign-in page
 
-**Reusable layout:** `src/routes/+layout.svelte` orchestrates theme provider + ForgeTopBar + ForgeSideNav + WorkbenchShell
+The first seven appear in `LeftRailNav`; `/settings` and `/login` are reached
+from `TopBar`. `/quick-run` and `/presets` were retired — their pages now live
+in `src/archive/retired-routes/`, outside the route tree, and are not routes.
+
+**Reusable layout:** `src/routes/+layout.svelte` orchestrates `TopBar` +
+`LeftRailNav` + `StatusBar` + `WorkbenchShell`
 
 ## Build & Deployment
 
-**Build Output:** `vite build` → `build/` directory (SvelteKit adapter-auto handles platform detection)
+**Build Output:** `vite build` → `build/` directory, via **`adapter-static`**
+with `pages`/`assets` set to `build` and `prerender = true` in
+`src/routes/+layout.ts`. This is not optional: VibeForge ships as a Tauri
+desktop app and `src-tauri/tauri.conf.json` names `frontendDist: "../build"`,
+read at compile time. `adapter-auto` writes nothing when it detects no hosting
+platform, which left the desktop binary unbuildable. `trailingSlash` stays
+`never` (writing `settings.html`) to match Tauri's asset resolver, and
+`strict` stays `true` with no `fallback`, so a route that fails to prerender
+fails the build.
+
+**Artifact gate:** `pnpm verify:artifact` serves `build/` and checks every
+route declared in `src/routes/`. Run it after any change touching routes,
+navigation or components.
 
 **Tailwind:** Using Tailwind v4 via `@tailwindcss/vite` plugin in `vite.config.ts`. All CSS imports via `@import "tailwindcss"` in `app.css`. Theme tokens defined in `@theme` block (lines 1–28 of `app.css`).
 
@@ -195,41 +240,73 @@ SvelteKit file-based routing (each is a `+page.svelte` in its own directory):
 
 ## Feature Patterns
 
-### Quick Run vs. Main Workbench
-- **Quick Run** (`/quick-run`): Single-column, speed-optimized for rapid experiments. Components in `src/lib/components/quickrun/`. No context library, lightweight form, 1–2 model comparison side-by-side.
-- **Main Workbench** (`/`): 3-column professional interface for structured, persistent work with full context management.
+### Main Workbench
+- **`/`** — the 3-column professional interface for structured, persistent
+  work with full context management. `ContextColumn` + `PromptColumn` +
+  `OutputColumn`, from `$lib/workbench/{context,prompt,output}/`.
+- Quick Run was retired. There is no `/quick-run` route and no
+  `components/quickrun/` directory; the old page sits in
+  `src/archive/retired-routes/quick-run/` for reference only. Do not add a
+  third path to the workbench under a Quick Run label.
 
-### Presets System
-- **Preset** is a saved configuration: basePrompt + contextRefs (array of `{id, label}`) + models + metadata.
-- Stored in `presetsStore` (in-memory; backend TODO).
-- Components: `PresetsDrawer.svelte`, `SavePresetModal.svelte`, `PresetDetailPanel.svelte` in `src/lib/components/presets/`.
-- Pattern: Pressing "Save Preset" in workbench opens modal; modal exports preset data to store.
+### Presets
+- A **Preset** is a saved configuration: `basePrompt` + `contextRefs`
+  (`{id, label}[]`) + `models` + metadata.
+- `src/lib/stores/presets.ts` is a classic writable store, so read it with the
+  `$` prefix. It is consumed by `workbench/prompt/PromptEditor.svelte`,
+  `workbench/prompts/PromptSelector.svelte` and the root layout.
+- **There is no dedicated presets UI.** `PresetsDrawer`, `SavePresetModal`,
+  `PresetDetailPanel` and the `/presets` route were all retired. Build any new
+  presets surface against the store, not against those components.
 
 ### Workspaces
-- **Workspace** entity: Container for contexts, settings, and run stats. Tracks default evaluation scale, preferred models, activity stats.
-- Managed via `src/lib/types/workspace.ts` type definitions.
-- UI in `src/lib/components/workspaces/` (WorkspacesList, WorkspaceDetailPanel, WorkspaceEditorDrawer).
-- Pattern: 2-column layout on desktop (list + detail), responsive to single column on mobile.
+- **Workspace** entity: container for contexts, settings and run stats.
+- Types in `src/lib/types/workspace.ts`; state in
+  `workspaceStore` (`$lib/core/stores`).
+- UI in `src/lib/components/workspaces/` (`WorkspacesList`,
+  `WorkspaceDetailPanel`, `WorkspaceEditorDrawer`).
+- Pattern: 2-column layout on desktop (list + detail), single column on mobile.
 
 ### Settings Screen
-- **Four sections** in `/settings` each with own component:
-  1. `WorkspaceSettingsSection.svelte` — Defaults (workspace, models, evaluation scale, require winner)
-  2. `AppearanceSettingsSection.svelte` — Theme, font size (links to `accessibilityStore`), density toggles
-  3. `ModelSettingsSection.svelte` — Per-model API key and endpoint config
-  4. `DataSettingsSection.svelte` — History retention, data management policies
-- All controlled via stores; local-first (TODO: persist to backend).
+`/settings` is composed of sections in `src/lib/components/settings/`:
+`SettingsHeader`, `WorkspaceSettingsSection`, `AppearanceSettingsSection`
+(theme only — dark/light/system via `themeStore`; the font-size
+`accessibilityStore` was removed), `ModelSettingsSection`,
+`ModelRoutingSettingsSection`, `LLMSettingsSection`, `DataSettingsSection`,
+`AboutSettingsSection`.
 
 ## Critical Notes for Agents
 
-1. **Always hydrate stores on mount** — Use `onMount(() => { /* load persisted state */ })` if needed for SSR edge cases
-2. **Derived stores are reactive** — Don't mutate the source; use update/set methods on writable stores
-3. **Theme propagates globally** — Changes to `theme` store auto-apply to all components; no manual refreshes needed
-4. **Active contexts** are a derived filter — PromptColumn chip rendering depends on `$activeContexts` being synced with store
-5. **Component prop patterns** — Most list/detail components follow `blocks`, `activeId`, `onSelect` convention for consistency
-6. **Timestamp format** — Always use ISO 8601 strings (`new Date().toISOString()`) for `lastUpdated` fields; easier to sort and serialize
-7. **Token estimation** — Current logic is naive (length / 4); keep it simple unless integrating with real tokenizer
-8. **Presets persist to store only** — Currently in-memory; no backend sync yet (TODO comments in `presets.ts`). Save/load from `localStorage` manually if adding persistence.
-9. **Workspace stats are display-only** — `totalRuns` and `lastRunAt` are computed from run history; don't mutate stats directly.
-10. **Font size accessibility** — Changes to `accessibilityStore.fontSize` auto-apply CSS to document root; components don't need manual binding.
-11. **Quick Run modal pattern** — If integrating new quick-run flows, follow the `open` prop + callback pattern in `QuickRunForm.svelte` for state management.
-12. **Settings are local-first** — All settings UI reads from stores; backend persistence is a future enhancement. Current behavior is UI-only.
+1. **Know which store layer you are in** — `*.svelte.ts` means runes: read
+   `store.prop`, call `store.action()`, never `$store`. A classic writable in
+   `src/lib/stores/` still needs `$`.
+2. **Never mutate store state from outside** — call the action the store
+   exports (`contextBlocksStore.addBlock(b)`), not
+   `contextBlocksStore.blocks.push(b)`.
+3. **Derive inside the store module** — put `$derived` next to the `$state` it
+   reads and expose it with a getter.
+4. **Guard browser APIs** — wrap `localStorage` and `document` access in
+   `if (browser)` from `$app/environment`. Every route is prerendered, so this
+   code runs at build time where neither exists.
+5. **Theme propagates globally** — `themeStore.setTheme()` writes
+   `localStorage` and the `data-theme` attribute; components only read
+   `themeStore.current`.
+6. **Active contexts** — `contextBlocksStore.activeBlocks` is a derived getter
+   over `blocks` filtered on `isActive`. Toggle with
+   `contextBlocksStore.toggleActive(id)`; do not maintain a parallel list.
+7. **Component prop patterns** — most list/detail components follow the
+   `blocks`, `activeId`, `onSelect` convention. Use callback props, never
+   `createEventDispatcher`.
+8. **Timestamps** — ISO 8601 strings. `ContextBlock` carries `createdAt` and
+   `updatedAt`; there is no `lastUpdated` field.
+9. **Token estimation** — naive (`length / 4`) in `promptStore.estimatedTokens`;
+   keep it simple unless integrating a real tokenizer.
+10. **Workspace stats are display-only** — `totalRuns` and `lastRunAt` derive
+    from run history; do not mutate them directly.
+11. **Routes are a build-time contract** — adding, renaming or removing a
+    route, a `goto()` target or an `href` changes what
+    `pnpm verify:artifact` checks. Run it, and `pnpm run check`, before
+    claiming a change works.
+12. **`src/archive/` is dead code** — outside the route tree and excluded from
+    `svelte-check` by `tsconfig.json`. Never import from it, and do not treat
+    anything there as a live surface.

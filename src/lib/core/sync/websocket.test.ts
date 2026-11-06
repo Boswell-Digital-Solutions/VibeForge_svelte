@@ -101,12 +101,13 @@ describe('WebSocket Real-Time Sync', () => {
 
 	describe('Connection Establishment', () => {
 		it('should create WebSocket connection', async () => {
-			await wsSync.connect();
+			const connected = wsSync.connect();
 
 			// Advance timers to trigger connection
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
-			expect(wsSync.isConnected()).toBe(true);
+			expect(wsSync.getStatus()).toBe(true);
 		});
 
 		it('should set correct WebSocket URL', () => {
@@ -117,8 +118,9 @@ describe('WebSocket Real-Time Sync', () => {
 		});
 
 		it('should initialize BroadcastChannel', async () => {
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// BroadcastChannel should be created
 			expect(wsSync).toBeDefined();
@@ -131,8 +133,9 @@ describe('WebSocket Real-Time Sync', () => {
 
 			const sendSpy = vi.spyOn(MockWebSocket.prototype, 'send');
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Should send auth message
 			expect(sendSpy).toHaveBeenCalledWith(
@@ -147,8 +150,9 @@ describe('WebSocket Real-Time Sync', () => {
 		it('should start heartbeat after connection', async () => {
 			const sendSpy = vi.spyOn(MockWebSocket.prototype, 'send');
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Clear initial auth message
 			sendSpy.mockClear();
@@ -165,8 +169,9 @@ describe('WebSocket Real-Time Sync', () => {
 		it('should send ping every 30 seconds', async () => {
 			const sendSpy = vi.spyOn(MockWebSocket.prototype, 'send');
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			sendSpy.mockClear();
 
@@ -186,8 +191,9 @@ describe('WebSocket Real-Time Sync', () => {
 		it('should stop heartbeat on disconnect', async () => {
 			const sendSpy = vi.spyOn(MockWebSocket.prototype, 'send');
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			wsSync.disconnect();
 			await vi.advanceTimersByTimeAsync(20);
@@ -216,8 +222,9 @@ describe('WebSocket Real-Time Sync', () => {
 
 			vi.mocked(indexedDb.workspaceStore.save).mockResolvedValue();
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Simulate receiving message
 			const ws = (wsSync as any).ws as MockWebSocket;
@@ -243,8 +250,9 @@ describe('WebSocket Real-Time Sync', () => {
 
 			vi.mocked(indexedDb.workspaceStore.delete).mockResolvedValue();
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			const ws = (wsSync as any).ws as MockWebSocket;
 			if (ws.onmessage) {
@@ -265,8 +273,9 @@ describe('WebSocket Real-Time Sync', () => {
 				data: {},
 			};
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			const ws = (wsSync as any).ws as MockWebSocket;
 			if (ws.onmessage) {
@@ -285,8 +294,9 @@ describe('WebSocket Real-Time Sync', () => {
 				data: {},
 			};
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			const ws = (wsSync as any).ws as MockWebSocket;
 			if (ws.onmessage) {
@@ -305,8 +315,9 @@ describe('WebSocket Real-Time Sync', () => {
 				data: { message: 'Server error' },
 			};
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			const ws = (wsSync as any).ws as MockWebSocket;
 			if (ws.onmessage) {
@@ -326,8 +337,9 @@ describe('WebSocket Real-Time Sync', () => {
 
 			wsSync.subscribe(handler);
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Simulate resource update
 			const mockUpdate = {
@@ -358,8 +370,9 @@ describe('WebSocket Real-Time Sync', () => {
 
 			const unsubscribe = wsSync.subscribe(handler);
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Unsubscribe
 			unsubscribe();
@@ -395,8 +408,9 @@ describe('WebSocket Real-Time Sync', () => {
 			wsSync.subscribe(handler1);
 			wsSync.subscribe(handler2);
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Simulate resource update
 			const mockUpdate = {
@@ -426,10 +440,11 @@ describe('WebSocket Real-Time Sync', () => {
 
 	describe('Auto-Reconnect', () => {
 		it('should reconnect on connection close', async () => {
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
-			expect(wsSync.isConnected()).toBe(true);
+			expect(wsSync.getStatus()).toBe(true);
 
 			// Simulate connection close
 			const ws = (wsSync as any).ws as MockWebSocket;
@@ -447,8 +462,9 @@ describe('WebSocket Real-Time Sync', () => {
 		});
 
 		it('should use exponential backoff for reconnects', async () => {
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Simulate multiple disconnects
 			for (let i = 0; i < 3; i++) {
@@ -467,8 +483,9 @@ describe('WebSocket Real-Time Sync', () => {
 		});
 
 		it('should stop reconnecting after max attempts', async () => {
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Simulate 10 failed reconnects
 			for (let i = 0; i < 11; i++) {
@@ -486,8 +503,9 @@ describe('WebSocket Real-Time Sync', () => {
 		});
 
 		it('should reset reconnect attempts on successful connection', async () => {
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Simulate disconnect
 			const ws = (wsSync as any).ws as MockWebSocket;
@@ -507,8 +525,9 @@ describe('WebSocket Real-Time Sync', () => {
 		it('should broadcast updates to other tabs', async () => {
 			const broadcastSpy = vi.spyOn(MockBroadcastChannel.prototype, 'postMessage');
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Simulate resource update
 			const mockUpdate = {
@@ -537,8 +556,9 @@ describe('WebSocket Real-Time Sync', () => {
 		it('should close BroadcastChannel on disconnect', async () => {
 			const closeSpy = vi.spyOn(MockBroadcastChannel.prototype, 'close');
 
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			wsSync.disconnect();
 			await vi.advanceTimersByTimeAsync(20);
@@ -550,41 +570,46 @@ describe('WebSocket Real-Time Sync', () => {
 
 	describe('Connection Lifecycle', () => {
 		it('should disconnect cleanly', async () => {
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
-			expect(wsSync.isConnected()).toBe(true);
+			expect(wsSync.getStatus()).toBe(true);
 
 			wsSync.disconnect();
 			await vi.advanceTimersByTimeAsync(20);
 
-			expect(wsSync.isConnected()).toBe(false);
+			expect(wsSync.getStatus()).toBe(false);
 		});
 
 		it('should allow reconnecting after disconnect', async () => {
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			wsSync.disconnect();
 			await vi.advanceTimersByTimeAsync(20);
 
 			// Reconnect
-			await wsSync.connect();
+			const connected2 = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected2;
 
-			expect(wsSync.isConnected()).toBe(true);
+			expect(wsSync.getStatus()).toBe(true);
 		});
 
 		it('should handle multiple connect calls gracefully', async () => {
-			await wsSync.connect();
+			const connected = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected;
 
 			// Call connect again (should not create duplicate connection)
-			await wsSync.connect();
+			const connected2 = wsSync.connect();
 			await vi.advanceTimersByTimeAsync(20);
+			await connected2;
 
 			// Should still be connected
-			expect(wsSync.isConnected()).toBe(true);
+			expect(wsSync.getStatus()).toBe(true);
 		});
 	});
 
@@ -601,7 +626,7 @@ describe('WebSocket Real-Time Sync', () => {
 
 			await vi.advanceTimersByTimeAsync(20);
 
-			expect(instance.isConnected()).toBe(true);
+			expect(instance.getStatus()).toBe(true);
 		});
 	});
 });
