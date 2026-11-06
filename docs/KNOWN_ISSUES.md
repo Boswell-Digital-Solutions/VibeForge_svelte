@@ -431,14 +431,14 @@
   `cargo fmt --check` would fail on the 36 unformatted files recorded above.
   Both need their own change, in that order, before the job can widen.
 
-## 2026-10-27 - The unit tests and the type check fail on `master` (open)
+## 2026-10-27 - The unit tests and the type check fail on `master` (closed 2026-11-05)
 
 - What is wrong: on `master` at `148dbde`, `vitest run` reports 143 failed tests in 24 files (1172 passed). `svelte-check --tsconfig ./tsconfig.json` reports 196 errors and 245 warnings in 110 files.
 - Failing test files include `src/lib/core/sync/*` (indexedDb, syncManager, websocket), `src/lib/refactoring/analyzer/__tests__/*`, `src/tests/planning/*`, `src/tests/stores/*` (analysisStore, license, workspace), `src/tests/integration/mcp.integration.test.ts`, `src/tests/performance/benchmarks.test.ts`, `src/lib/core/api/dataforgeClient.enhanced.test.ts` and seven `tools/stateforge/src/*` suites.
 - Why CI does not show it: every code job fails at install first (the entry "Code CI fails at install on `master`").
 - Evidence: measured locally on 2026-10-27 while verifying `fix/workbench-send-user-token`. That branch gives the same counts, plus its own 2 passing tests.
 - Root cause: not investigated.
-- Scope: open.
+- Scope: closed 2026-11-05. `master` at `3db3b23`, merged into `fix/workbench-send-user-token`: `vitest run` gives 1436 passed and 1 skipped in 49 files. `svelte-check` gives 0 errors. The counts above no longer hold. The fix is in the `master` commits merged here; this entry did not find which commit.
 
 ## 2026-10-02 - `verify:repo-context` fails on a clean checkout (open)
 
