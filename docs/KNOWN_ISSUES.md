@@ -838,3 +838,18 @@
 - Scope: open. A fix means rejecting a response with no `access_token`, which
   changes production error handling and was outside the authorized scope of
   PR #13.
+
+## 2026-11-09 - The /refactoring Analyze step shows the internal name NeuroForge (open)
+
+- Status: OPEN, 2026-11-09. Recorded by forge BDS-FGITR-v0.1 (governance
+  truth audit).
+- What is wrong: `src/lib/components/refactoring/AnalyzeStep.svelte:76`
+  renders the checkbox label "Enable continuous learning (NeuroForge
+  integration)", verified at `c5f9d8e`. The `/refactoring` route renders this
+  component (`src/routes/refactoring/+page.svelte:58`). `CLAUDE.md:117` keeps
+  internal Forge component names, NeuroForge included, out of the commercial
+  product UI. No test or script scans UI strings for those names. The rule is
+  stated only in agent instruction files, `doc/` and `repo.manifest.yaml`.
+- Cause: Not established.
+- Fix: None applied.
+- Scope: Open.
