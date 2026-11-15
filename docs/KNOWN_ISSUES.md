@@ -853,3 +853,56 @@
 - Cause: Not established.
 - Fix: None applied.
 - Scope: Open.
+
+## 2026-11-15 - doc/system never states who may write VibeForge decisions, and DataForge says VibeForge writes them with a `user_token` (open)
+
+- Status: OPEN, 2026-11-15. Source: BDS-ORG-ARCH-AUDIT-2026-11, doc/system pass.
+  Evidence class: **Documented** on both sides. No source code was read.
+- What is wrong:
+  - DataForge says "VibeForge writes user decisions only (user_token)" and lists the
+    forbidden writes: findings, run records and enrichments
+    (`DataForge@d873e8ffa0:doc/system/11-scope.md:L63-L66`;
+    `doc/system/16-handover.md:L76`).
+  - VibeForge `doc/system/` has no text on `user_token` and no text on the rule
+    that VibeForge writes no findings. A grep of `doc/system/` for `user_token`,
+    `run_token` and `user token` finds nothing (**Observed (doc tree)**).
+  - VibeForge says decisions, receipts and AARs live in the local Evidence Vault, and
+    that Cloud DataForge receives only privacy-safe analytics
+    (`VibeForge_svelte@bf08d25cdf:doc/system/00-overview.md:L25-L26`;
+    `doc/system/01-architecture.md:L33-L34`).
+  - So the two sets of docs disagree. DataForge says a lifecycle transition from VibeForge
+    reaches DataForge with a `user_token`. VibeForge says decisions stay local.
+- Effect: a reader cannot tell if VibeForge sends a decision to DataForge. The workspace
+  authority table assigns user decisions to VibeForge (`user_token`) and findings to other
+  systems. Neither repository documents the contract.
+- Cause: not determined. The audit did not read VibeForge source, so it does not say what
+  the application does.
+- Fix: none applied. Recommendation, not ruled: state in `doc/system/01-architecture.md`
+  whether any decision reaches DataForge, and name the token. If none does, correct
+  DataForge `11-scope.md`.
+- Scope: open.
+
+## 2026-11-15 - doc/system holds four placeholder parts, stale bootstrap banners and one sentence that contradicts its own chapter (open)
+
+- Status: OPEN, 2026-11-15. Source: BDS-ORG-ARCH-AUDIT-2026-11, doc/system pass.
+  Evidence class: **Observed (doc tree)**.
+- What is wrong:
+  - Four of the eight parts are registry placeholders ("Replace this placeholder with real
+    authored content"): `10-product-surface.md`, `20-runtime.md`, `30-data.md` and
+    `90-appendices.md`.
+  - `40-integrations.md:L3` and `50-operations.md:L3` still say "1.0 (bootstrap scaffold)".
+    Both hold real content. `_index.md:L11` says "1.0 (bootstrap)".
+  - `40-integrations.md:L56-L57` says "The application holds no reference to NeuronForge, so
+    there is no local inference lane to configure". The next section, "Local inference
+    lane" (`:L58` onward), documents a NeuronForge Local bridge, its readiness state machine
+    and its Rust transport. The sentence is stale.
+- Evidence: `VibeForge_svelte@bf08d25cdf:doc/system/` (the lines above).
+- Effect: the product surface, runtime and data chapters carry no content. The compiled
+  `doc/VBFSYSTEM.md` shows the placeholders as chapters.
+- Related: the entry "No local inference lane exists in the application" above records
+  the code state and the progress. It does not record the stale sentence in the chapter.
+- Cause: not determined.
+- Fix: none applied. Recommendation, not ruled: write or remove the four placeholder parts,
+  drop the scaffold banners, and delete the stale sentence. Run `bash doc/system/BUILD.sh`
+  after the edit.
+- Scope: open.
