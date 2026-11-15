@@ -906,3 +906,24 @@
   drop the scaffold banners, and delete the stale sentence. Run `bash doc/system/BUILD.sh`
   after the edit.
 - Scope: open.
+
+## 2026-11-15 - Playwright cannot install on `ubuntu-latest`, so every E2E job fails at browser install (fixed in PR #22; closes when E2E passes on ubuntu-26.04)
+
+- Status: OPEN, 2026-11-15. Source: BDS-ORG-ARCH-AUDIT-2026-11, follow-up to a canebrake_press CI failure.
+  Evidence class: **Observed (source, CI)**. Confirmed by a manual run on 2026-11-15.
+- What is wrong:
+  - `ubuntu-latest` now resolves to Ubuntu 26.04 (Author-Forge run `43683562532`, 2026-11-15, `Image: ubuntu-26.04`).
+  - Playwright 1.58.2 has no chromium build for 26.04: canebrake_press run `43687919156` failed with
+    "Playwright does not support chromium on ubuntu26.04-x64".
+  - This repository locks `@playwright/test` 1.56.1, which is older
+    (`VibeForge_svelte@691d6f2221:pnpm-lock.yaml`, specifier `^1.56.1` in `package.json:L34`).
+  - Four workflows install Playwright on `ubuntu-latest`: `ci.yml:L96, L121` (push and pull_request),
+    `release-gate.yml:L62, L83` (push), `e2e-full.yml:L32, L63` and `e2e-manual.yml:L25, L53-L55` (manual or called).
+  - Confirmed: `E2E Tests (Manual)` run `43699328027` (2026-11-15, chromium, image `ubuntu-26.04`) failed at "Install Playwright browsers" with
+    "Playwright does not support chromium on ubuntu26.04-x64". The test steps were skipped.
+  - The last `ci.yml` run (2026-11-06) used `ubuntu-24.04`. `ci.yml` skips docs-only changes, so the next code push is the first `ci.yml` run on 26.04, and it will fail the same way.
+- Root cause: the runner image moved to 26.04, and the locked Playwright release is older than the first release that supports it.
+- Fix: applied 2026-11-15 in PR #22 (operator request). `package.json` sets `@playwright/test` to `^1.61.1`, and `pnpm-lock.yaml`
+  resolves `@playwright/test`, `playwright` and `playwright-core` 1.61.1. 1.61.1 is the release that Author-Forge runs green on 26.04.
+  No runner pin is used.
+- Scope: closes when an `ubuntu-26.04` run installs Playwright and the E2E tests pass.
