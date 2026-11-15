@@ -907,10 +907,10 @@
   after the edit.
 - Scope: open.
 
-## 2026-11-15 - The next CI run will likely fail to install Playwright on `ubuntu-latest` (open)
+## 2026-11-15 - Playwright cannot install on `ubuntu-latest`, so every E2E job fails at browser install (open)
 
 - Status: OPEN, 2026-11-15. Source: BDS-ORG-ARCH-AUDIT-2026-11, follow-up to a canebrake_press CI failure.
-  Evidence class: **Observed (source, CI metadata)** for the facts; **Inferred** for the failure, which has not happened yet.
+  Evidence class: **Observed (source, CI)**. Confirmed by a manual run on 2026-11-15.
 - What is wrong:
   - `ubuntu-latest` now resolves to Ubuntu 26.04 (Author-Forge run `43683562532`, 2026-11-15, `Image: ubuntu-26.04`).
   - Playwright 1.58.2 has no chromium build for 26.04: canebrake_press run `43687919156` failed with
@@ -919,7 +919,9 @@
     (`VibeForge_svelte@691d6f2221:pnpm-lock.yaml`, specifier `^1.56.1` in `package.json:L34`).
   - Four workflows install Playwright on `ubuntu-latest`: `ci.yml:L96, L121` (push and pull_request),
     `release-gate.yml:L62, L83` (push), `e2e-full.yml:L32, L63` and `e2e-manual.yml:L25, L53-L55` (manual or called).
-  - The last `ci.yml` run (2026-11-06) used `ubuntu-24.04`, so no run has tested 26.04 yet.
+  - Confirmed: `E2E Tests (Manual)` run `43699328027` (2026-11-15, chromium, image `ubuntu-26.04`) failed at "Install Playwright browsers" with
+    "Playwright does not support chromium on ubuntu26.04-x64". The test steps were skipped.
+  - The last `ci.yml` run (2026-11-06) used `ubuntu-24.04`. `ci.yml` skips docs-only changes, so the next code push is the first `ci.yml` run on 26.04, and it will fail the same way.
 - Root cause: the runner image moved to 26.04, and the locked Playwright release is older than the first release that supports it.
 - Fix: none applied. Recommendation: bump `@playwright/test` to 1.61.1 or later (Author-Forge runs 1.61.1 green on 26.04).
   The fallback is to pin the Playwright jobs to `ubuntu-24.04`, as canebrake_press did in its PR #21.
