@@ -906,3 +906,21 @@
   drop the scaffold banners, and delete the stale sentence. Run `bash doc/system/BUILD.sh`
   after the edit.
 - Scope: open.
+
+## 2026-11-15 - The next CI run will likely fail to install Playwright on `ubuntu-latest` (open)
+
+- Status: OPEN, 2026-11-15. Source: BDS-ORG-ARCH-AUDIT-2026-11, follow-up to a canebrake_press CI failure.
+  Evidence class: **Observed (source, CI metadata)** for the facts; **Inferred** for the failure, which has not happened yet.
+- What is wrong:
+  - `ubuntu-latest` now resolves to Ubuntu 26.04 (Author-Forge run `43683562532`, 2026-11-15, `Image: ubuntu-26.04`).
+  - Playwright 1.58.2 has no chromium build for 26.04: canebrake_press run `43687919156` failed with
+    "Playwright does not support chromium on ubuntu26.04-x64".
+  - This repository locks `@playwright/test` 1.56.1, which is older
+    (`VibeForge_svelte@691d6f2221:pnpm-lock.yaml`, specifier `^1.56.1` in `package.json:L34`).
+  - Four workflows install Playwright on `ubuntu-latest`: `ci.yml:L96, L121` (push and pull_request),
+    `release-gate.yml:L62, L83` (push), `e2e-full.yml:L32, L63` and `e2e-manual.yml:L25, L53-L55` (manual or called).
+  - The last `ci.yml` run (2026-11-06) used `ubuntu-24.04`, so no run has tested 26.04 yet.
+- Root cause: the runner image moved to 26.04, and the locked Playwright release is older than the first release that supports it.
+- Fix: none applied. Recommendation: bump `@playwright/test` to 1.61.1 or later (Author-Forge runs 1.61.1 green on 26.04).
+  The fallback is to pin the Playwright jobs to `ubuntu-24.04`, as canebrake_press did in its PR #21.
+- Scope: open. Close it when a CI run on `ubuntu-26.04` installs Playwright and passes.
