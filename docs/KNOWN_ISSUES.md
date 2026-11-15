@@ -907,7 +907,7 @@
   after the edit.
 - Scope: open.
 
-## 2026-11-15 - Playwright cannot install on `ubuntu-latest`, so every E2E job fails at browser install (fixed in PR #22; closes when E2E passes on ubuntu-26.04)
+## 2026-11-15 - Playwright cannot install on `ubuntu-latest`, so every E2E job fails at browser install (closed 2026-11-15)
 
 - Status: OPEN, 2026-11-15. Source: BDS-ORG-ARCH-AUDIT-2026-11, follow-up to a canebrake_press CI failure.
   Evidence class: **Observed (source, CI)**. Confirmed by a manual run on 2026-11-15.
@@ -926,4 +926,5 @@
 - Fix: applied 2026-11-15 in PR #22 (operator request). `package.json` sets `@playwright/test` to `^1.61.1`, and `pnpm-lock.yaml`
   resolves `@playwright/test`, `playwright` and `playwright-core` 1.61.1. 1.61.1 is the release that Author-Forge runs green on 26.04.
   No runner pin is used.
-- Scope: closes when an `ubuntu-26.04` run installs Playwright and the E2E tests pass.
+- Verified (Observed, CI): PR #22 run `43701778979`, image `ubuntu-26.04`: `E2E Smoke (chromium)` passed 12 tests.
+- Scope: closed 2026-11-15. The firefox and webkit lanes (`e2e-full.yml`, `e2e-manual.yml`) were not run.
