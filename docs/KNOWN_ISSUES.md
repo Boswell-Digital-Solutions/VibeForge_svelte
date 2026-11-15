@@ -907,7 +907,7 @@
   after the edit.
 - Scope: open.
 
-## 2026-11-15 - Playwright cannot install on `ubuntu-latest`, so every E2E job fails at browser install (open)
+## 2026-11-15 - Playwright cannot install on `ubuntu-latest`, so every E2E job fails at browser install (fixed in PR #22; closes when E2E passes on ubuntu-26.04)
 
 - Status: OPEN, 2026-11-15. Source: BDS-ORG-ARCH-AUDIT-2026-11, follow-up to a canebrake_press CI failure.
   Evidence class: **Observed (source, CI)**. Confirmed by a manual run on 2026-11-15.
@@ -923,6 +923,7 @@
     "Playwright does not support chromium on ubuntu26.04-x64". The test steps were skipped.
   - The last `ci.yml` run (2026-11-06) used `ubuntu-24.04`. `ci.yml` skips docs-only changes, so the next code push is the first `ci.yml` run on 26.04, and it will fail the same way.
 - Root cause: the runner image moved to 26.04, and the locked Playwright release is older than the first release that supports it.
-- Fix: none applied. Recommendation: bump `@playwright/test` to 1.61.1 or later (Author-Forge runs 1.61.1 green on 26.04).
-  The fallback is to pin the Playwright jobs to `ubuntu-24.04`, as canebrake_press did in its PR #21.
-- Scope: open. Close it when a CI run on `ubuntu-26.04` installs Playwright and passes.
+- Fix: applied 2026-11-15 in PR #22 (operator request). `package.json` sets `@playwright/test` to `^1.61.1`, and `pnpm-lock.yaml`
+  resolves `@playwright/test`, `playwright` and `playwright-core` 1.61.1. 1.61.1 is the release that Author-Forge runs green on 26.04.
+  No runner pin is used.
+- Scope: closes when an `ubuntu-26.04` run installs Playwright and the E2E tests pass.

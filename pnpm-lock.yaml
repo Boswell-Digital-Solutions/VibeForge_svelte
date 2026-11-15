@@ -37,8 +37,8 @@ importers:
         version: 3.1.5(chart.js@4.5.1)(svelte@5.43.10)
     devDependencies:
       '@playwright/test':
-        specifier: ^1.56.1
-        version: 1.56.1
+        specifier: ^1.61.1
+        version: 1.61.1
       '@sveltejs/adapter-static':
         specifier: ^4.0.1
         version: 4.0.1(@sveltejs/kit@2.48.5(@sveltejs/vite-plugin-svelte@6.2.1(svelte@5.43.10)(vite@7.2.2(@types/node@20.19.25)(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.43.10)(vite@7.2.2(@types/node@20.19.25)(jiti@2.6.1)(lightningcss@1.30.2)))
@@ -359,8 +359,8 @@ packages:
   '@monaco-editor/loader@1.7.0':
     resolution: {integrity: sha512-gIwR1HrJrrx+vfyOhYmCZ0/JcWqG5kbfG7+d3f/C1LXk2EvzAbHSg3MQ5lO2sMlo9izoAZ04shohfKLVT6crVA==}
 
-  '@playwright/test@1.56.1':
-    resolution: {integrity: sha512-vSMYtL/zOcFpvJCW71Q/OEGQb7KYBPAdKh35WNSkaZA75JlAO8ED8UN6GUNTm3drWomcbcqRPFqQbLae8yBTdg==}
+  '@playwright/test@1.61.1':
+    resolution: {integrity: sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -1141,6 +1141,7 @@ packages:
 
   lucide-svelte@0.555.0:
     resolution: {integrity: sha512-2kWIcstKGgQObLGpYXmcYwm/Y83Am+AQcP7MnybrmaRU1+QUJ/WSEpv/wAbwaSkrWUiN1TX/9FuWQKLeEeWCrQ==}
+    deprecated: Package deprecated. Please use @lucide/svelte instead.
     peerDependencies:
       svelte: ^3 || ^4 || ^5.0.0-next.42
 
@@ -1217,13 +1218,13 @@ packages:
     resolution: {integrity: sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q==}
     engines: {node: '>=12'}
 
-  playwright-core@1.56.1:
-    resolution: {integrity: sha512-hutraynyn31F+Bifme+Ps9Vq59hKuUCz7H1kDOcBs+2oGguKkWTU50bBWrtz34OUWmIwpBTWDxaRPXrIXkgvmQ==}
+  playwright-core@1.61.1:
+    resolution: {integrity: sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==}
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright@1.56.1:
-    resolution: {integrity: sha512-aFi5B0WovBHTEvpM3DzXTUaeN6eN0qWnTkKx4NQaH4Wvcmc153PdaY2UBdSYKaGYw+UyWXSVyxDUg5DoPEttjw==}
+  playwright@1.61.1:
+    resolution: {integrity: sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -1480,6 +1481,7 @@ packages:
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
     engines: {node: '>=18'}
+    deprecated: Use @exodus/bytes instead for a more spec-conformant and faster implementation
 
   whatwg-mimetype@3.0.0:
     resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
@@ -1692,9 +1694,9 @@ snapshots:
     dependencies:
       state-local: 1.0.7
 
-  '@playwright/test@1.56.1':
+  '@playwright/test@1.61.1':
     dependencies:
-      playwright: 1.56.1
+      playwright: 1.61.1
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -2451,11 +2453,11 @@ snapshots:
 
   picomatch@4.0.3: {}
 
-  playwright-core@1.56.1: {}
+  playwright-core@1.61.1: {}
 
-  playwright@1.56.1:
+  playwright@1.61.1:
     dependencies:
-      playwright-core: 1.56.1
+      playwright-core: 1.61.1
     optionalDependencies:
       fsevents: 2.3.2
 
